@@ -1,0 +1,1 @@
+- [OCR scan pipeline](ocr-scan-pipeline.md) — /api/scan uses offline Tesseract via Python subprocess (not EasyOCR/AI vision); EasyOCR won't install here.

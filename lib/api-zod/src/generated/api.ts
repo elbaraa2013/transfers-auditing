@@ -273,13 +273,13 @@ export const ScanTransferImageBody = zod.object({
 })
 
 export const ScanTransferImageResponse = zod.object({
-  "operationNumber": zod.string(),
-  "amount": zod.number(),
-  "fromAccount": zod.string(),
-  "toAccount": zod.string(),
-  "recipientName": zod.string(),
+  "operationNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "fromAccount": zod.string().nullable(),
+  "toAccount": zod.string().nullable(),
+  "recipientName": zod.string().nullable(),
   "comment": zod.string().nullish(),
-  "transferDate": zod.string(),
+  "transferDate": zod.string().nullable(),
   "riskScore": zod.number(),
   "confidence": zod.number()
 })

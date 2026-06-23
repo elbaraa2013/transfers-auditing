@@ -7,14 +7,20 @@
  */
 
 export interface ScanResult {
-  operationNumber: string;
-  amount: number;
-  fromAccount: string;
-  toAccount: string;
-  recipientName: string;
+  /** @nullable */
+  operationNumber: string | null;
+  /** @nullable */
+  amount: number | null;
+  /** @nullable */
+  fromAccount: string | null;
+  /** @nullable */
+  toAccount: string | null;
+  /** @nullable */
+  recipientName: string | null;
   /** @nullable */
   comment?: string | null;
-  transferDate: string;
+  /** @nullable */
+  transferDate: string | null;
   riskScore: number;
   confidence: number;
 }

@@ -113,8 +113,26 @@ export default function Scan() {
     }
   };
 
+  const missingFields = result
+    ? [
+        !result.operationNumber && "رقم العملية",
+        result.amount == null && "المبلغ",
+        !result.fromAccount && "من حساب",
+        !result.toAccount && "إلى حساب",
+        !result.recipientName && "المرسل إليه",
+      ].filter(Boolean) as string[]
+    : [];
+
   const handleCreate = () => {
-    if (result && selectedAgentId) {
+    if (
+      result &&
+      selectedAgentId &&
+      result.operationNumber &&
+      result.amount != null &&
+      result.fromAccount &&
+      result.toAccount &&
+      result.recipientName
+    ) {
       createMutation.mutate({
         data: {
           operationNumber: result.operationNumber,
@@ -125,7 +143,7 @@ export default function Scan() {
           comment: result.comment || undefined,
           agentId: selectedAgentId,
           riskScore: result.riskScore,
-          transferDate: result.transferDate
+          transferDate: result.transferDate ?? undefined
         }
       });
     }
@@ -184,7 +202,7 @@ export default function Scan() {
               disabled={!image || scanMutation.isPending}
               onClick={handleScan}
             >
-              {scanMutation.isPending ? "جاري التحليل..." : "تحليل الصورة بالذكاء الاصطناعي"}
+              {scanMutation.isPending ? "جاري التحليل..." : "مسح الصورة واستخراج البيانات"}
             </Button>
           </CardFooter>
         </Card>
@@ -197,7 +215,7 @@ export default function Scan() {
             {scanMutation.isPending ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                 <div className="w-12 h-12 border-4 border-[#0F6E56] border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-gray-500">يقوم الذكاء الاصطناعي باستخراج البيانات...</p>
+                <p className="text-gray-500">جارٍ مسح الصورة واستخراج البيانات...</p>
               </div>
             ) : result ? (
               <div className="space-y-4">
@@ -222,7 +240,7 @@ export default function Scan() {
                   </div>
                   <div className="flex justify-between border-b pb-2">
                     <span className="text-gray-500">المبلغ</span>
-                    <span className="font-bold">{formatCurrency(result.amount)}</span>
+                    <span className="font-bold">{result.amount != null ? formatCurrency(result.amount) : "—"}</span>
                   </div>
                   <div className="flex justify-between border-b pb-2">
                     <span className="text-gray-500">المرسل إليه</span>
@@ -238,7 +256,7 @@ export default function Scan() {
                   </div>
                   <div className="flex justify-between border-b pb-2">
                     <span className="text-gray-500">التاريخ</span>
-                    <span className="font-medium">{formatDateTime(result.transferDate)}</span>
+                    <span className="font-medium">{result.transferDate ? formatDateTime(result.transferDate) : "—"}</span>
                   </div>
                   <div className="flex justify-between pt-1">
                     <span className="text-gray-500">مستوى المخاطرة</span>
@@ -261,10 +279,18 @@ export default function Scan() {
               </div>
             )}
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-col items-stretch gap-2">
+            {result && missingFields.length > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2 text-amber-800 text-sm">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  تعذّر قراءة بعض الحقول الإلزامية: {missingFields.join("، ")}. يرجى استخدام صورة أوضح.
+                </div>
+              </div>
+            )}
             <Button 
               className="w-full bg-[#16A34A] hover:bg-[#15803d]" 
-              disabled={!result}
+              disabled={!result || missingFields.length > 0}
               onClick={() => setShowCreateDialog(true)}
             >
               تسجيل الحوالة

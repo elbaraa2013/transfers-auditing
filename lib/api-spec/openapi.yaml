@@ -514,19 +514,19 @@ components:
         - confidence
       properties:
         operationNumber:
-          type: string
+          type: ["string", "null"]
         amount:
-          type: number
+          type: ["number", "null"]
         fromAccount:
-          type: string
+          type: ["string", "null"]
         toAccount:
-          type: string
+          type: ["string", "null"]
         recipientName:
-          type: string
+          type: ["string", "null"]
         comment:
           type: ["string", "null"]
         transferDate:
-          type: string
+          type: ["string", "null"]
         riskScore:
           type: number
         confidence:
