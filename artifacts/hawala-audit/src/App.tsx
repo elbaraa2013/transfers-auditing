@@ -2,39 +2,58 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppProvider } from "@/contexts/AppContext";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient();
+// Components
+import Layout from "@/components/layout/Layout";
 
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Replit Agent is building...</h1>
-        <p className="mt-2 text-sm text-gray-600">Your app will appear here once it's ready.</p>
-      </div>
-    </div>
-  );
-}
+// Pages
+import Overview from "@/pages/Overview";
+import Transfers from "@/pages/Transfers";
+import Scan from "@/pages/Scan";
+import Matching from "@/pages/Matching";
+import Inactive from "@/pages/Inactive";
+import Statement from "@/pages/Statement";
+import Whatsapp from "@/pages/Whatsapp";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
-    </Switch>
+    <Layout>
+      <Switch>
+        <Route path="/" component={Overview} />
+        <Route path="/transfers" component={Transfers} />
+        <Route path="/scan" component={Scan} />
+        <Route path="/matching" component={Matching} />
+        <Route path="/inactive" component={Inactive} />
+        <Route path="/statement" component={Statement} />
+        <Route path="/whatsapp" component={Whatsapp} />
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <AppProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </AppProvider>
     </QueryClientProvider>
   );
 }

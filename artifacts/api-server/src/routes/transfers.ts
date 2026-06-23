@@ -39,8 +39,9 @@ router.get("/transfers", async (req, res) => {
   if (status && ["pending", "approved", "rejected"].includes(status)) {
     conditions.push(eq(transfersTable.status, status as "pending" | "approved" | "rejected"));
   }
-  if (agentId) {
-    conditions.push(eq(transfersTable.agentId, parseInt(agentId)));
+  const parsedAgentId = agentId ? parseInt(agentId) : NaN;
+  if (!isNaN(parsedAgentId)) {
+    conditions.push(eq(transfersTable.agentId, parsedAgentId));
   }
 
   const rows = await db
