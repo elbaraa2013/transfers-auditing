@@ -1,15 +1,24 @@
 """
 Bankak receipt OCR extractor (offline, Tesseract-based).
 
-Reads an image path from argv, runs Arabic+English OCR, and prints a single
-JSON object to stdout with the extracted transfer fields. Designed to be
-spawned as a subprocess by the Node API server.
+Reads an image path from argv, runs OCR, and prints a single JSON object to
+stdout with the extracted transfer fields. Designed to be spawned as a
+subprocess by the Node API server.
 
-Extraction strategy (ported from the dynamic label-matching approach):
-- OCR the image into text blocks with bounding boxes.
-- Group blocks into visual lines.
-- For each known field, locate its label keyword, then take the value on the
-  same line or the line directly below it.
+Extraction strategy (tuned for real Bankak RTL receipts):
+- Two OCR passes on the same grayscale, upscaled image:
+    * Pass A (ara+eng): used for Arabic labels and Arabic text values
+      (recipient name, comment).
+    * Pass B (eng): reads Latin digits, amounts and dates far more cleanly
+      than Arabic mode, which mangles digit groups and the month name.
+- Words are grouped into lines and ordered by their on-screen x position
+  (left -> right), which undoes Tesseract's bidi reordering so that account
+  digit groups keep their true visual order.
+- Numeric/date fields are matched purely by content pattern from Pass B.
+  The two account numbers are disambiguated by vertical position
+  (top one = "from", bottom one = "to").
+- Arabic text values are matched by label tokens in Pass A; their tokens are
+  reversed to restore right-to-left reading order.
 """
 
 import sys
@@ -17,33 +26,35 @@ import json
 import re
 
 import cv2
-import numpy as np
 import pytesseract
 from pytesseract import Output
 
 
-def preprocess(image_path):
+AR_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+
+
+def load_gray(image_path):
     img = cv2.imread(image_path)
     if img is None:
         raise ValueError("could not read image")
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # Upscale small images to help OCR.
     h, w = gray.shape[:2]
-    if max(h, w) < 1000:
-        scale = 1000.0 / max(h, w)
-        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-    gray = cv2.bilateralFilter(gray, 9, 75, 75)
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return thresh
+    longest = max(h, w)
+    if longest < 1800:
+        scale = 1800.0 / longest
+        gray = cv2.resize(
+            gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+        )
+    return gray
 
 
-def ocr_lines(image):
-    """Return list of {text, center_y, center_x, conf} grouped into lines."""
+def ocr_lines(image, lang):
+    """Return list of line dicts, words ordered left->right (visual order)."""
     data = pytesseract.image_to_data(
-        image, lang="ara+eng", config="--psm 6", output_type=Output.DICT
+        image, lang=lang, config="--psm 4", output_type=Output.DICT
     )
 
-    words = []
+    grouped = {}
     n = len(data["text"])
     for i in range(n):
         text = (data["text"][i] or "").strip()
@@ -53,7 +64,8 @@ def ocr_lines(image):
             conf = -1.0
         if not text or conf < 0:
             continue
-        words.append(
+        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
+        grouped.setdefault(key, []).append(
             {
                 "text": text,
                 "left": data["left"][i],
@@ -61,130 +73,188 @@ def ocr_lines(image):
                 "width": data["width"][i],
                 "height": data["height"][i],
                 "conf": conf,
-                "line_key": (data["block_num"][i], data["par_num"][i], data["line_num"][i]),
             }
         )
 
-    # Group words by their tesseract line key, preserving reading order.
-    grouped = {}
-    for wd in words:
-        grouped.setdefault(wd["line_key"], []).append(wd)
-
     lines = []
-    for key, ws in grouped.items():
-        ws.sort(key=lambda x: x["left"])
-        text = " ".join(w["text"] for w in ws)
-        top = min(w["top"] for w in ws)
-        bottom = max(w["top"] + w["height"] for w in ws)
-        left = min(w["left"] for w in ws)
-        right = max(w["left"] + w["width"] for w in ws)
-        confs = [w["conf"] for w in ws]
+    for words in grouped.values():
+        words.sort(key=lambda x: x["left"])  # visual left -> right
+        top = min(w["top"] for w in words)
+        bottom = max(w["top"] + w["height"] for w in words)
+        confs = [w["conf"] for w in words]
         lines.append(
             {
-                "text": text.strip(),
+                "tokens": [w["text"] for w in words],
+                "text": " ".join(w["text"] for w in words),
+                "top": top,
+                "bottom": bottom,
                 "center_y": (top + bottom) / 2.0,
-                "center_x": (left + right) / 2.0,
                 "conf": sum(confs) / len(confs) if confs else 0.0,
             }
         )
 
-    lines.sort(key=lambda x: (x["center_y"], x["center_x"]))
+    lines.sort(key=lambda x: x["top"])
     return lines
 
 
-def find_value_below(lines, label_keywords):
-    """Find the value on the same line after the label, or the next line."""
-    for i, line in enumerate(lines):
-        if any(kw in line["text"] for kw in label_keywords):
-            # Try to strip the label off the same line.
-            remainder = line["text"]
-            for kw in label_keywords:
-                if kw in remainder:
-                    remainder = remainder.split(kw, 1)[1]
-            remainder = remainder.strip(" :：-\t")
-            if remainder:
-                return remainder
-            # Otherwise take the line directly below.
-            if i + 1 < len(lines):
-                return lines[i + 1]["text"].strip()
+def normalize_ar(text):
+    text = text.translate(AR_DIGITS)
+    text = re.sub(r"[إأآا]", "ا", text)
+    text = text.replace("ى", "ي").replace("ة", "ه")
+    return text
+
+
+def has_tokens(line_text, *needles):
+    norm = normalize_ar(line_text)
+    return all(normalize_ar(nd) in norm for nd in needles)
+
+
+# ----- numeric extraction from the English pass -----
+
+ACCOUNT_GROUP_RE = re.compile(r"\d{3,4}(?:\s+\d{3,4}){3}")
+DATE_RE = re.compile(
+    r"(\d{1,2}[-/][A-Za-z]{3,}[-/]\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)"
+)
+AMOUNT_RE = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d{2}\b")
+
+
+def extract_accounts(eng_lines):
+    """Return account lines (16 digits) sorted top->bottom: [from, to]."""
+    found = []
+    for line in eng_lines:
+        txt = line["text"].translate(AR_DIGITS)
+        m = ACCOUNT_GROUP_RE.search(txt)
+        if m:
+            digits = re.sub(r"\D", "", m.group(0))
+            if 12 <= len(digits) <= 17:
+                found.append((line["top"], digits))
+            continue
+        digits = re.sub(r"\D", "", txt)
+        if 14 <= len(digits) <= 18:
+            found.append((line["top"], digits))
+    found.sort(key=lambda x: x[0])
+    return [d for _, d in found]
+
+
+def extract_date(eng_lines):
+    for line in eng_lines:
+        m = DATE_RE.search(line["text"])
+        if m:
+            return re.sub(r"\s+", " ", m.group(1)).strip()
     return None
 
 
-def clean_number(value):
-    if value is None:
+def extract_amount(eng_lines):
+    candidates = []
+    for line in eng_lines:
+        txt = line["text"].translate(AR_DIGITS)
+        for m in AMOUNT_RE.finditer(txt):
+            raw = m.group(0).replace(",", "")
+            try:
+                candidates.append(float(raw))
+            except ValueError:
+                continue
+    if not candidates:
         return None
-    # Normalize Arabic-Indic digits to ASCII.
-    trans = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
-    value = value.translate(trans)
-    digits = re.sub(r"[^0-9.]", "", value)
-    if not digits:
-        return None
-    try:
-        num = float(digits)
-        return int(num) if num.is_integer() else num
-    except ValueError:
-        return None
+    val = max(candidates)
+    return int(val) if val.is_integer() else val
 
 
-def clean_account(value):
-    if value is None:
-        return None
-    trans = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
-    value = value.translate(trans)
-    digits = re.sub(r"[^0-9]", "", value)
-    return digits or value.strip()
+def extract_operation(eng_lines, account_digits):
+    """Longest standalone 9-12 digit run not belonging to an account line."""
+    acct_set = set(account_digits)
+    best = None
+    for line in eng_lines:
+        digits_only = re.sub(r"\D", "", line["text"].translate(AR_DIGITS))
+        if digits_only in acct_set:
+            continue
+        for tok in line["text"].translate(AR_DIGITS).split():
+            t = re.sub(r"\D", "", tok)
+            if 9 <= len(t) <= 12 and (best is None or len(t) > len(best)):
+                best = t
+    return best
+
+
+# ----- arabic text extraction from the arabic pass -----
+
+LABEL_TOKENS = {
+    "المرسل", "اليه", "اله", "اسم", "التعليق", "العمليه", "رقم",
+    "المبلغ", "حساب", "من", "الي", "التاريخ", "الوقت", "الزمن",
+    "الحاله", "نوع", "الموبايل", "و",
+}
+
+
+def arabic_value(ar_lines, *needles):
+    """Find a labeled line and return its non-label Arabic tokens in
+    right-to-left reading order."""
+    for line in ar_lines:
+        if has_tokens(line["text"], *needles):
+            kept = []
+            for tok in line["tokens"]:
+                norm = normalize_ar(tok)
+                if norm in LABEL_TOKENS:
+                    continue
+                if not re.search(r"[\u0600-\u06FF]", tok):
+                    continue  # drop non-arabic noise
+                kept.append(tok)
+            if kept:
+                # tokens are in visual order; reverse for RTL reading order
+                return " ".join(reversed(kept)).strip()
+    return None
 
 
 def extract(image_path):
-    image = preprocess(image_path)
-    lines = ocr_lines(image)
+    gray = load_gray(image_path)
+    ar_lines = ocr_lines(gray, "ara+eng")
+    eng_lines = ocr_lines(gray, "eng")
 
-    amount_raw = find_value_below(lines, ["المبلغ", "Amount"])
-    op_raw = find_value_below(lines, ["رقم العملية", "رقم العمليه", "Transaction", "Reference", "المرجع"])
-    from_raw = find_value_below(lines, ["من حساب", "From Account", "من"])
-    to_raw = find_value_below(lines, ["إلى حساب", "الى حساب", "To Account"])
-    recipient_raw = find_value_below(lines, ["المرسل إليه", "المرسل اليه", "Recipient", "اسم المستفيد", "المستفيد"])
-    date_raw = find_value_below(lines, ["التاريخ", "Date", "الوقت", "Time"])
+    accounts = extract_accounts(eng_lines)
+    from_account = accounts[0] if len(accounts) >= 1 else None
+    to_account = accounts[1] if len(accounts) >= 2 else None
 
-    amount = clean_number(amount_raw)
+    operation_number = extract_operation(eng_lines, accounts)
+    amount = extract_amount(eng_lines)
+    transfer_date = extract_date(eng_lines)
 
-    if op_raw:
-        # Strip leftover label fragments like "No", "No:", "#".
-        op_raw = re.sub(r"^(no\.?|#|رقم)\s*[:：]?\s*", "", op_raw.strip(), flags=re.IGNORECASE).strip()
+    recipient = arabic_value(ar_lines, "المرسل") or arabic_value(ar_lines, "المستفيد")
+    comment = arabic_value(ar_lines, "التعليق")
+
+    fields = [operation_number, amount, from_account, to_account, recipient, transfer_date]
+    found = [f for f in fields if f]
+    completeness = len(found) / len(fields)
 
     overall_conf = (
-        sum(l["conf"] for l in lines) / len(lines) / 100.0 if lines else 0.0
+        sum(l["conf"] for l in eng_lines) / len(eng_lines) / 100.0
+        if eng_lines else 0.0
     )
 
-    found = [v for v in [amount, op_raw, from_raw, to_raw, recipient_raw] if v]
-    completeness = len(found) / 5.0
-
-    # Simple risk heuristic: large amounts and missing fields raise risk.
     risk = 0.1
     if amount:
-        if amount >= 100000:
-            risk = 0.85
+        if amount >= 1000000:
+            risk = 0.9
+        elif amount >= 100000:
+            risk = 0.7
         elif amount >= 50000:
-            risk = 0.6
+            risk = 0.5
         elif amount >= 10000:
-            risk = 0.4
+            risk = 0.35
         else:
             risk = 0.2
     risk = min(1.0, risk + (1.0 - completeness) * 0.2)
 
-    confidence = round(min(1.0, overall_conf * 0.6 + completeness * 0.4), 2)
+    confidence = round(min(1.0, overall_conf * 0.5 + completeness * 0.5), 2)
 
     return {
-        "operationNumber": (op_raw or "").strip() or None,
+        "operationNumber": operation_number,
         "amount": amount,
-        "fromAccount": clean_account(from_raw),
-        "toAccount": clean_account(to_raw),
-        "recipientName": (recipient_raw or "").strip() or None,
-        "comment": None,
-        "transferDate": (date_raw or "").strip() or None,
+        "fromAccount": from_account,
+        "toAccount": to_account,
+        "recipientName": recipient,
+        "comment": comment,
+        "transferDate": transfer_date,
         "riskScore": round(risk, 2),
         "confidence": confidence,
-        "rawLines": [l["text"] for l in lines],
+        "rawLines": [l["text"] for l in ar_lines],
     }
 
 
