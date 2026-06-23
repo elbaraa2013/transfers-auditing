@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface Conversation {
+  agentId: number;
+  agentName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
 }

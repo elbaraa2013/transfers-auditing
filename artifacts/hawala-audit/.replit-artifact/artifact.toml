@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "نظام تدقيق الحوالات"
+version = "1.0.0"
+id = "artifacts/hawala-audit"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22270
+
+[services.development]
+run = "pnpm --filter @workspace/hawala-audit run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/hawala-audit", "run", "build" ]
+publicDir = "artifacts/hawala-audit/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22270"
+BASE_PATH = "/"

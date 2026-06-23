@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface InactiveAgent {
+  id: number;
+  name: string;
+  phone: string;
+  lastActivityAt: string;
+  inactiveHours: number;
 }

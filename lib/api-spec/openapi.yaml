@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: نظام تدقيق الحوالات API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: transfers
+    description: إدارة الحوالات
+  - name: agents
+    description: المناديب
+  - name: scan
+    description: مسح الحوالات بالذكاء الاصطناعي
+  - name: messages
+    description: رسائل واتساب
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +30,283 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /transfers:
+    get:
+      operationId: listTransfers
+      tags: [transfers]
+      summary: قائمة الحوالات
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: agentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: قائمة الحوالات
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transfer"
+    post:
+      operationId: createTransfer
+      tags: [transfers]
+      summary: إضافة حوالة جديدة
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferInput"
+      responses:
+        "201":
+          description: تم الإنشاء
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+
+  /transfers/stats:
+    get:
+      operationId: getTransferStats
+      tags: [transfers]
+      summary: إحصائيات الحوالات للوحة التحكم
+      responses:
+        "200":
+          description: الإحصائيات
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferStats"
+
+  /transfers/pending:
+    get:
+      operationId: listPendingTransfers
+      tags: [transfers]
+      summary: الحوالات المعلقة للمطابقة اليومية
+      responses:
+        "200":
+          description: الحوالات المعلقة
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transfer"
+
+  /transfers/{id}:
+    get:
+      operationId: getTransfer
+      tags: [transfers]
+      summary: تفاصيل حوالة
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: الحوالة
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "404":
+          description: غير موجود
+
+  /transfers/{id}/approve:
+    patch:
+      operationId: approveTransfer
+      tags: [transfers]
+      summary: اعتماد حوالة
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: تم الاعتماد
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "404":
+          description: غير موجود
+        "409":
+          description: الحوالة مقفلة
+
+  /transfers/{id}/reject:
+    patch:
+      operationId: rejectTransfer
+      tags: [transfers]
+      summary: رفض حوالة
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectInput"
+      responses:
+        "200":
+          description: تم الرفض
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "404":
+          description: غير موجود
+        "409":
+          description: الحوالة مقفلة
+
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: قائمة المناديب
+      responses:
+        "200":
+          description: المناديب
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+
+  /agents/inactive:
+    get:
+      operationId: listInactiveAgents
+      tags: [agents]
+      summary: تقرير المناديب الخاملين أكثر من 48 ساعة
+      responses:
+        "200":
+          description: المناديب الخاملون
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InactiveAgent"
+
+  /agents/{id}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: تفاصيل مندوب
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: المندوب
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          description: غير موجود
+
+  /agents/{id}/statement:
+    get:
+      operationId: getAgentStatement
+      tags: [agents]
+      summary: كشف حساب مندوب
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: كشف الحساب
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentStatement"
+        "404":
+          description: غير موجود
+
+  /scan:
+    post:
+      operationId: scanTransferImage
+      tags: [scan]
+      summary: مسح صورة حوالة بالذكاء الاصطناعي
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanInput"
+      responses:
+        "200":
+          description: البيانات المستخرجة
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+        "400":
+          description: خطأ في المعالجة
+
+  /messages:
+    get:
+      operationId: listConversations
+      tags: [messages]
+      summary: قائمة المحادثات
+      responses:
+        "200":
+          description: المحادثات
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+
+  /messages/{agentId}:
+    get:
+      operationId: getConversation
+      tags: [messages]
+      summary: محادثة مع مندوب
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: الرسائل
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +317,264 @@ components:
       required:
         - status
 
+    Transfer:
+      type: object
+      required:
+        - id
+        - operationNumber
+        - amount
+        - fromAccount
+        - toAccount
+        - recipientName
+        - status
+        - riskLevel
+        - riskScore
+        - agentId
+        - agentName
+        - createdAt
+      properties:
+        id:
+          type: integer
+        operationNumber:
+          type: string
+        amount:
+          type: number
+        fromAccount:
+          type: string
+        toAccount:
+          type: string
+        recipientName:
+          type: string
+        comment:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        riskLevel:
+          type: string
+          enum: [low, medium, high]
+        riskScore:
+          type: number
+        agentId:
+          type: integer
+        agentName:
+          type: string
+        rejectionReason:
+          type: ["string", "null"]
+        transferDate:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    TransferInput:
+      type: object
+      required:
+        - operationNumber
+        - amount
+        - fromAccount
+        - toAccount
+        - recipientName
+        - agentId
+        - riskScore
+      properties:
+        operationNumber:
+          type: string
+        amount:
+          type: number
+        fromAccount:
+          type: string
+        toAccount:
+          type: string
+        recipientName:
+          type: string
+        comment:
+          type: string
+        agentId:
+          type: integer
+        riskScore:
+          type: number
+        transferDate:
+          type: string
+
+    RejectInput:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    TransferStats:
+      type: object
+      required:
+        - total
+        - pending
+        - approved
+        - rejected
+        - totalAmount
+        - pendingAmount
+        - approvedAmount
+        - rejectedAmount
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        approved:
+          type: integer
+        rejected:
+          type: integer
+        totalAmount:
+          type: number
+        pendingAmount:
+          type: number
+        approvedAmount:
+          type: number
+        rejectedAmount:
+          type: number
+
+    Agent:
+      type: object
+      required:
+        - id
+        - name
+        - phone
+        - balance
+        - lastActivityAt
+        - totalTransfers
+        - pendingTransfers
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        balance:
+          type: number
+        lastActivityAt:
+          type: string
+        totalTransfers:
+          type: integer
+        pendingTransfers:
+          type: integer
+
+    InactiveAgent:
+      type: object
+      required:
+        - id
+        - name
+        - phone
+        - lastActivityAt
+        - inactiveHours
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        lastActivityAt:
+          type: string
+        inactiveHours:
+          type: number
+
+    AgentStatement:
+      type: object
+      required:
+        - agent
+        - balance
+        - transfers
+      properties:
+        agent:
+          $ref: "#/components/schemas/Agent"
+        balance:
+          type: number
+        transfers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transfer"
+
+    ScanInput:
+      type: object
+      required:
+        - imageBase64
+      properties:
+        imageBase64:
+          type: string
+
+    ScanResult:
+      type: object
+      required:
+        - operationNumber
+        - amount
+        - fromAccount
+        - toAccount
+        - recipientName
+        - transferDate
+        - riskScore
+        - confidence
+      properties:
+        operationNumber:
+          type: string
+        amount:
+          type: number
+        fromAccount:
+          type: string
+        toAccount:
+          type: string
+        recipientName:
+          type: string
+        comment:
+          type: ["string", "null"]
+        transferDate:
+          type: string
+        riskScore:
+          type: number
+        confidence:
+          type: number
+
+    Conversation:
+      type: object
+      required:
+        - agentId
+        - agentName
+        - lastMessage
+        - lastMessageAt
+        - unreadCount
+      properties:
+        agentId:
+          type: integer
+        agentName:
+          type: string
+        lastMessage:
+          type: string
+        lastMessageAt:
+          type: string
+        unreadCount:
+          type: integer
+
+    Message:
+      type: object
+      required:
+        - id
+        - agentId
+        - content
+        - type
+        - direction
+        - sentAt
+      properties:
+        id:
+          type: integer
+        agentId:
+          type: integer
+        content:
+          type: string
+        type:
+          type: string
+          enum: [text, image]
+        direction:
+          type: string
+          enum: [incoming, outgoing]
+        imageUrl:
+          type: ["string", "null"]
+        sentAt:
+          type: string
