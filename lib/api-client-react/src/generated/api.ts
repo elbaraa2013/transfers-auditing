@@ -21,7 +21,9 @@ import type {
 
 import type {
   Agent,
+  AgentInput,
   AgentStatement,
+  ChangeAgentInput,
   Conversation,
   HealthStatus,
   InactiveAgent,
@@ -580,6 +582,78 @@ export const useApproveTransfer = <TError = ErrorType<void>,
       return useMutation(getApproveTransferMutationOptions(options));
     }
 
+export const getChangeTransferAgentUrl = (id: number,) => {
+
+
+
+
+  return `/api/transfers/${id}/agent`
+}
+
+/**
+ * @summary تغيير مندوب الحوالة قبل الاعتماد
+ */
+export const changeTransferAgent = async (id: number,
+    changeAgentInput: ChangeAgentInput, options?: RequestInit): Promise<Transfer> => {
+
+  return customFetch<Transfer>(getChangeTransferAgentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      changeAgentInput,)
+  }
+);}
+
+
+
+
+export const getChangeTransferAgentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeTransferAgent>>, TError,{id: number;data: BodyType<ChangeAgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeTransferAgent>>, TError,{id: number;data: BodyType<ChangeAgentInput>}, TContext> => {
+
+const mutationKey = ['changeTransferAgent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeTransferAgent>>, {id: number;data: BodyType<ChangeAgentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  changeTransferAgent(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeTransferAgentMutationResult = NonNullable<Awaited<ReturnType<typeof changeTransferAgent>>>
+    export type ChangeTransferAgentMutationBody = BodyType<ChangeAgentInput>
+    export type ChangeTransferAgentMutationError = ErrorType<void>
+
+    /**
+ * @summary تغيير مندوب الحوالة قبل الاعتماد
+ */
+export const useChangeTransferAgent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeTransferAgent>>, TError,{id: number;data: BodyType<ChangeAgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof changeTransferAgent>>,
+        TError,
+        {id: number;data: BodyType<ChangeAgentInput>},
+        TContext
+      > => {
+      return useMutation(getChangeTransferAgentMutationOptions(options));
+    }
+
 export const getRejectTransferUrl = (id: number,) => {
 
 
@@ -728,6 +802,77 @@ export function useListAgents<TData = Awaited<ReturnType<typeof listAgents>>, TE
 
 
 
+
+export const getCreateAgentUrl = () => {
+
+
+
+
+  return `/api/agents`
+}
+
+/**
+ * @summary إضافة مندوب جديد
+ */
+export const createAgent = async (agentInput: AgentInput, options?: RequestInit): Promise<Agent> => {
+
+  return customFetch<Agent>(getCreateAgentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      agentInput,)
+  }
+);}
+
+
+
+
+export const getCreateAgentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAgent>>, TError,{data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAgent>>, TError,{data: BodyType<AgentInput>}, TContext> => {
+
+const mutationKey = ['createAgent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAgent>>, {data: BodyType<AgentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAgent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAgentMutationResult = NonNullable<Awaited<ReturnType<typeof createAgent>>>
+    export type CreateAgentMutationBody = BodyType<AgentInput>
+    export type CreateAgentMutationError = ErrorType<void>
+
+    /**
+ * @summary إضافة مندوب جديد
+ */
+export const useCreateAgent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAgent>>, TError,{data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAgent>>,
+        TError,
+        {data: BodyType<AgentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateAgentMutationOptions(options));
+    }
 
 export const getListInactiveAgentsUrl = () => {
 

@@ -93,9 +93,32 @@ export interface InactiveAgent {
   inactiveHours: number;
 }
 
+export interface AgentInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  phone: string;
+}
+
+export interface ChangeAgentInput {
+  agentId: number;
+}
+
+export interface StatementSummary {
+  totalCount: number;
+  approvedCount: number;
+  pendingCount: number;
+  rejectedCount: number;
+  totalAmount: number;
+  approvedAmount: number;
+  pendingAmount: number;
+  rejectedAmount: number;
+}
+
 export interface AgentStatement {
   agent: Agent;
   balance: number;
+  summary: StatementSummary;
   transfers: Transfer[];
 }
 

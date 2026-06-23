@@ -2,8 +2,9 @@ import { useListInactiveAgents } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
-import { UserX } from "lucide-react";
+import { UserX, Printer } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Inactive() {
@@ -16,19 +17,24 @@ export default function Inactive() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto print-area">
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-100 p-2 rounded-full">
-              <UserX className="w-6 h-6 text-red-600" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-red-100 p-2 rounded-full">
+                <UserX className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <CardTitle>تقرير المناديب الخاملين</CardTitle>
+                <CardDescription>
+                  قائمة بالمناديب الذين لم يقوموا بأي نشاط لأكثر من 48 ساعة.
+                </CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle>تقرير المناديب الخاملين</CardTitle>
-              <CardDescription>
-                قائمة بالمناديب الذين لم يقوموا بأي نشاط لأكثر من 48 ساعة.
-              </CardDescription>
-            </div>
+            <Button variant="outline" onClick={() => window.print()} className="no-print flex-shrink-0">
+              <Printer className="w-4 h-4 ml-2" /> طباعة
+            </Button>
           </div>
         </CardHeader>
         <CardContent>

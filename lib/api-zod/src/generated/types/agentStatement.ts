@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Agent } from './agent';
+import type { StatementSummary } from './statementSummary';
 import type { Transfer } from './transfer';
 
 export interface AgentStatement {
   agent: Agent;
   balance: number;
+  summary: StatementSummary;
   transfers: Transfer[];
 }

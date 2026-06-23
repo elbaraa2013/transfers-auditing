@@ -149,6 +149,35 @@ paths:
         "409":
           description: الحوالة مقفلة
 
+  /transfers/{id}/agent:
+    patch:
+      operationId: changeTransferAgent
+      tags: [transfers]
+      summary: تغيير مندوب الحوالة قبل الاعتماد
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeAgentInput"
+      responses:
+        "200":
+          description: تم تغيير المندوب
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "404":
+          description: غير موجود
+        "409":
+          description: الحوالة مقفلة
+
   /transfers/{id}/reject:
     patch:
       operationId: rejectTransfer
@@ -192,6 +221,25 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Agent"
+    post:
+      operationId: createAgent
+      tags: [agents]
+      summary: إضافة مندوب جديد
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+      responses:
+        "201":
+          description: تم الإنشاء
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "400":
+          description: بيانات غير صحيحة
 
   /agents/inactive:
     get:
@@ -477,21 +525,74 @@ components:
         inactiveHours:
           type: number
 
+    AgentInput:
+      type: object
+      required:
+        - name
+        - phone
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 1
+
+    ChangeAgentInput:
+      type: object
+      required:
+        - agentId
+      properties:
+        agentId:
+          type: integer
+
     AgentStatement:
       type: object
       required:
         - agent
         - balance
         - transfers
+        - summary
       properties:
         agent:
           $ref: "#/components/schemas/Agent"
         balance:
           type: number
+        summary:
+          $ref: "#/components/schemas/StatementSummary"
         transfers:
           type: array
           items:
             $ref: "#/components/schemas/Transfer"
+
+    StatementSummary:
+      type: object
+      required:
+        - totalCount
+        - approvedCount
+        - pendingCount
+        - rejectedCount
+        - totalAmount
+        - approvedAmount
+        - pendingAmount
+        - rejectedAmount
+      properties:
+        totalCount:
+          type: integer
+        approvedCount:
+          type: integer
+        pendingCount:
+          type: integer
+        rejectedCount:
+          type: integer
+        totalAmount:
+          type: number
+        approvedAmount:
+          type: number
+        pendingAmount:
+          type: number
+        rejectedAmount:
+          type: number
 
     ScanInput:
       type: object

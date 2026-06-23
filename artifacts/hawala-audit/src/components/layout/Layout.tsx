@@ -24,7 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 overflow-hidden font-sans" dir="rtl">
       {/* Sidebar */}
-      <aside className="w-64 bg-[#0F6E56] text-white flex flex-col flex-shrink-0">
+      <aside className="w-64 bg-[#0F6E56] text-white flex flex-col flex-shrink-0 no-print">
         <div className="p-4 flex items-center gap-3 border-b border-[#128266]">
           <Landmark className="w-8 h-8 text-white" />
           <h1 className="text-xl font-bold tracking-tight">نظام تدقيق الحوالات</h1>
@@ -56,7 +56,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 no-print">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-gray-800">
               {navigation.find(n => n.href === location)?.name || "نظام تدقيق الحوالات"}
@@ -71,7 +71,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 print-main">
           {children}
         </main>
       </div>

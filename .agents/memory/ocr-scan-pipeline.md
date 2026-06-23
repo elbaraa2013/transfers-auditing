@@ -21,6 +21,14 @@ called from Node by spawning the venv Python against `artifacts/api-server/ocr/b
 - Arabic value tokens come out in visual L→R order — **reverse them** to restore RTL reading order for names/comments.
 - Two passes × image ≈ 10–15s; never run multiple full extractions in one shell command (times out). The 30s subprocess timeout in scan.ts is enough for one image.
 
+**Recipient name on colored receipts (white/dark-on-color):**
+- The plain full-image pass returns null or a truncated fragment for the recipient ("المرسل اليه" / bare "اسم") on green/red receipts. Fix: locate the label row, then re-OCR ONLY a contrast-enhanced horizontal band (CLAHE gray, normalize-stretch, Otsu, saturation-inverted) — but ONLY when the primary value is weak (<4 Arabic letters), to stay under the per-request timeout. Do NOT re-OCR enhanced full images (4 full passes → >120s timeout; binarized speckle makes Tesseract crawl).
+- Band OCR must use **psm 6** (uniform block), not psm 4 — psm 4 returns nothing on a thin single-row strip.
+- The value name often sits LOWER and larger than the label's first line (the label wraps to two rows), so pad the band generously BELOW the label bbox (~0.6× height above, ~1.6× below).
+- Do NOT horizontally crop the band to drop the label column — it regresses psm 6 (too little content to anchor the line, and it drops trailing name tokens). Keep full width and clean the result instead.
+- Clean label remnants bleeding into the value via Levenshtein vs label words {اسم,المرسل,اليه,المستفيد,التعليق}: threshold ≤1 for short tokens (≤3 letters), ≤2 for len 4-5 — because real short names collide (e.g. "علي" is edit-distance 2 from "اليه"). Also drop short edge tokens that are a prefix of an adjacent token (truncated OCR dup).
+- Pick the candidate with the most Arabic letters across primary + band variants.
+
 **How to apply / constraints:**
 - Spawn the venv python at `<repoRoot>/.pythonlibs/bin/python` (resolve from `import.meta.url`, not `process.cwd()`, so deploy works); supports `OCR_PYTHON_BIN` / `OCR_SCRIPT_PATH` env overrides.
 - esbuild bundles api-server to `dist/index.mjs` (ESM), so `import.meta.url` is available; the `ocr/` dir is NOT bundled — it must ship alongside the package and be referenced by absolute path.

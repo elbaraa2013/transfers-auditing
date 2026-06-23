@@ -182,6 +182,50 @@ router.patch("/transfers/:id/approve", async (req, res) => {
   res.json(await buildTransferResponse(updated, agent[0]?.name ?? ""));
 });
 
+// PATCH /api/transfers/:id/agent
+router.patch("/transfers/:id/agent", async (req, res) => {
+  const id = parseInt(req.params.id);
+  const newAgentId = Number(req.body?.agentId);
+
+  if (!Number.isInteger(newAgentId)) {
+    res.status(400).json({ error: "معرّف المندوب غير صحيح" });
+    return;
+  }
+
+  const agent = await db.select().from(agentsTable).where(eq(agentsTable.id, newAgentId)).limit(1);
+  if (!agent.length) {
+    res.status(404).json({ error: "المندوب غير موجود" });
+    return;
+  }
+
+  // Atomic guard: only reassign while the transfer is still pending, so a
+  // concurrent approve/reject can't slip in between a status check and the
+  // update (TOCTOU).
+  const [updated] = await db
+    .update(transfersTable)
+    .set({ agentId: newAgentId })
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.status, "pending")))
+    .returning();
+
+  if (!updated) {
+    const existing = await db
+      .select({ status: transfersTable.status })
+      .from(transfersTable)
+      .where(eq(transfersTable.id, id))
+      .limit(1);
+    if (!existing.length) {
+      res.status(404).json({ error: "الحوالة غير موجودة" });
+      return;
+    }
+    res.status(409).json({ error: "لا يمكن تغيير المندوب بعد اعتماد أو رفض الحوالة" });
+    return;
+  }
+
+  await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(eq(agentsTable.id, newAgentId));
+
+  res.json(await buildTransferResponse(updated, agent[0].name));
+});
+
 // PATCH /api/transfers/:id/reject
 router.patch("/transfers/:id/reject", async (req, res) => {
   const id = parseInt(req.params.id);

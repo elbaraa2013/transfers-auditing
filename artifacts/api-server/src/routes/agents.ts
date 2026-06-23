@@ -1,19 +1,31 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { agentsTable, transfersTable } from "@workspace/db";
+import { agentsTable, transfersTable, insertAgentSchema } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
-async function buildAgentResponse(agent: typeof agentsTable.$inferSelect, totalTransfers: number, pendingTransfers: number) {
+// The agent balance is the total value of approved (settled) transfers they
+// handled. It is always computed from transfers, never read from a stored
+// column, so it stays correct as transfers are approved/rejected/reassigned.
+function computeBalance(transfers: (typeof transfersTable.$inferSelect)[]): number {
+  return transfers
+    .filter((t) => t.status === "approved")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+}
+
+function buildAgentResponse(
+  agent: typeof agentsTable.$inferSelect,
+  transfers: (typeof transfersTable.$inferSelect)[],
+) {
   return {
     id: agent.id,
     name: agent.name,
     phone: agent.phone,
-    balance: Number(agent.balance),
+    balance: computeBalance(transfers),
     lastActivityAt: agent.lastActivityAt.toISOString(),
-    totalTransfers,
-    pendingTransfers,
+    totalTransfers: transfers.length,
+    pendingTransfers: transfers.filter((t) => t.status === "pending").length,
   };
 }
 
@@ -24,12 +36,36 @@ router.get("/agents", async (req, res) => {
   const result = await Promise.all(
     agents.map(async (agent) => {
       const transfers = await db.select().from(transfersTable).where(eq(transfersTable.agentId, agent.id));
-      const pending = transfers.filter((t) => t.status === "pending").length;
-      return buildAgentResponse(agent, transfers.length, pending);
+      return buildAgentResponse(agent, transfers);
     })
   );
 
   res.json(result);
+});
+
+// POST /api/agents
+router.post("/agents", async (req, res) => {
+  const parsed = insertAgentSchema
+    .pick({ name: true, phone: true })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "بيانات المندوب غير صحيحة" });
+    return;
+  }
+
+  const name = parsed.data.name.trim();
+  const phone = parsed.data.phone.trim();
+  if (!name || !phone) {
+    res.status(400).json({ error: "الاسم ورقم الهاتف مطلوبان" });
+    return;
+  }
+
+  const [created] = await db
+    .insert(agentsTable)
+    .values({ name, phone })
+    .returning();
+
+  res.status(201).json(buildAgentResponse(created, []));
 });
 
 // GET /api/agents/inactive
@@ -67,9 +103,8 @@ router.get("/agents/:id", async (req, res) => {
   }
 
   const transfers = await db.select().from(transfersTable).where(eq(transfersTable.agentId, id));
-  const pending = transfers.filter((t) => t.status === "pending").length;
 
-  res.json(await buildAgentResponse(agents[0], transfers.length, pending));
+  res.json(buildAgentResponse(agents[0], transfers));
 });
 
 // GET /api/agents/:id/statement
@@ -106,12 +141,27 @@ router.get("/agents/:id/statement", async (req, res) => {
     createdAt: t.createdAt.toISOString(),
   }));
 
-  const totalTransfers = transfers.length;
-  const pending = transfers.filter((t) => t.status === "pending").length;
+  const approved = transfers.filter((t) => t.status === "approved");
+  const pending = transfers.filter((t) => t.status === "pending");
+  const rejected = transfers.filter((t) => t.status === "rejected");
+  const sumAmount = (rows: typeof transfers) =>
+    rows.reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const summary = {
+    totalCount: transfers.length,
+    approvedCount: approved.length,
+    pendingCount: pending.length,
+    rejectedCount: rejected.length,
+    totalAmount: sumAmount(transfers),
+    approvedAmount: sumAmount(approved),
+    pendingAmount: sumAmount(pending),
+    rejectedAmount: sumAmount(rejected),
+  };
 
   res.json({
-    agent: await buildAgentResponse(agents[0], totalTransfers, pending),
-    balance: Number(agents[0].balance),
+    agent: buildAgentResponse(agents[0], transfers),
+    balance: summary.approvedAmount,
+    summary,
     transfers: transfersFormatted,
   });
 });

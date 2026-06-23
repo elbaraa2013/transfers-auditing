@@ -6,6 +6,7 @@ import {
   useListAgents,
   useApproveTransfer,
   useRejectTransfer,
+  useChangeTransferAgent,
   TransferStatus,
   TransferRiskLevel,
   ListTransfersStatus
@@ -20,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Check, X, Lock, Search } from "lucide-react";
+import { Check, X, Lock, Search, Printer, ArrowRightLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Transfers() {
@@ -29,6 +30,8 @@ export default function Transfers() {
   const [search, setSearch] = useState("");
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [changeAgentFor, setChangeAgentFor] = useState<number | null>(null);
+  const [changeAgentTarget, setChangeAgentTarget] = useState<string>("");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -69,8 +72,28 @@ export default function Transfers() {
     }
   });
 
+  const changeAgentMutation = useChangeTransferAgent({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListTransfersQueryKey() });
+        toast({ title: "تم التغيير", description: "تم تغيير المندوب بنجاح" });
+        setChangeAgentFor(null);
+        setChangeAgentTarget("");
+      },
+      onError: (err: any) => {
+        toast({ title: "خطأ", description: err?.message || "تعذّر تغيير المندوب", variant: "destructive" });
+      }
+    }
+  });
+
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id });
+  };
+
+  const handleConfirmChangeAgent = () => {
+    if (changeAgentFor && changeAgentTarget) {
+      changeAgentMutation.mutate({ id: changeAgentFor, data: { agentId: parseInt(changeAgentTarget) } });
+    }
   };
 
   const handleReject = () => {
@@ -98,8 +121,8 @@ export default function Transfers() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 items-end">
+    <div className="space-y-6 print-area">
+      <div className="flex flex-col md:flex-row gap-4 items-end no-print">
         <div className="flex-1 w-full relative">
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-500" />
           <Input 
@@ -135,6 +158,9 @@ export default function Transfers() {
             </SelectContent>
           </Select>
         </div>
+        <Button variant="outline" onClick={() => window.print()} className="w-full md:w-auto flex-shrink-0">
+          <Printer className="w-4 h-4 ml-2" /> طباعة
+        </Button>
       </div>
 
       <Card>
@@ -150,7 +176,7 @@ export default function Transfers() {
                   <TableHead className="text-right">المبلغ</TableHead>
                   <TableHead className="text-center">المخاطرة</TableHead>
                   <TableHead className="text-center">الحالة</TableHead>
-                  <TableHead className="text-center">إجراء</TableHead>
+                  <TableHead className="text-center no-print">إجراء</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,7 +207,7 @@ export default function Transfers() {
                       <TableCell className="font-bold">{formatCurrency(transfer.amount)}</TableCell>
                       <TableCell className="text-center">{getRiskBadge(transfer.riskLevel)}</TableCell>
                       <TableCell className="text-center">{getStatusBadge(transfer.status)}</TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center no-print">
                         {transfer.status === TransferStatus.pending ? (
                           <div className="flex items-center justify-center gap-2">
                             <Button 
@@ -201,6 +227,15 @@ export default function Transfers() {
                               disabled={approveMutation.isPending || rejectMutation.isPending}
                             >
                               <X className="w-4 h-4 mr-1" /> رفض
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => { setChangeAgentFor(transfer.id); setChangeAgentTarget(""); }}
+                              disabled={approveMutation.isPending || rejectMutation.isPending}
+                              title="تغيير المندوب"
+                            >
+                              <ArrowRightLeft className="w-4 h-4" />
                             </Button>
                           </div>
                         ) : transfer.status === TransferStatus.approved ? (
@@ -238,6 +273,39 @@ export default function Transfers() {
             <Button variant="outline" onClick={() => setRejectId(null)}>إلغاء</Button>
             <Button variant="destructive" onClick={handleReject} disabled={rejectMutation.isPending || !rejectReason.trim()}>
               تأكيد الرفض
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!changeAgentFor} onOpenChange={(open) => !open && setChangeAgentFor(null)}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تغيير المندوب</DialogTitle>
+            <DialogDescription>
+              اختر المندوب الجديد لهذه الحوالة. يمكن التغيير قبل الاعتماد فقط.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Select value={changeAgentTarget} onValueChange={setChangeAgentTarget}>
+              <SelectTrigger>
+                <SelectValue placeholder="اختر المندوب الجديد..." />
+              </SelectTrigger>
+              <SelectContent>
+                {agents?.map(a => (
+                  <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangeAgentFor(null)}>إلغاء</Button>
+            <Button
+              className="bg-[#0F6E56] hover:bg-[#0b5341]"
+              onClick={handleConfirmChangeAgent}
+              disabled={changeAgentMutation.isPending || !changeAgentTarget}
+            >
+              تأكيد التغيير
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -307,3 +307,32 @@
     inset: -1px;
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  /* Unlock the flex/overflow shell so the report flows onto printed pages */
+  body * {
+    overflow: visible !important;
+  }
+  .print-main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .print-area {
+    width: 100% !important;
+  }
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+}

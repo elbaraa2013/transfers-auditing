@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
   useListConversations, 
-  useGetConversation 
+  useGetConversation,
+  getGetConversationQueryKey
 } from "@workspace/api-client-react";
 import { formatDateTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -18,19 +19,24 @@ export default function Whatsapp() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: conversations, isLoading: loadingConversations } = useListConversations();
-  const { data: conversationData, isLoading: loadingMessages } = useGetConversation(selectedAgentId!, {
-    query: { enabled: !!selectedAgentId }
+  const { data: messages, isLoading: loadingMessages } = useGetConversation(selectedAgentId!, {
+    query: {
+      enabled: !!selectedAgentId,
+      queryKey: getGetConversationQueryKey(selectedAgentId!)
+    }
   });
 
   const filteredConversations = conversations?.filter(c => 
     c.agentName.toLowerCase().includes(search.toLowerCase())
   );
 
+  const selectedAgentName = conversations?.find(c => c.agentId === selectedAgentId)?.agentName;
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [conversationData]);
+  }, [messages]);
 
   const handleScanImage = (imageUrl: string) => {
     // In a real app, we might pass the URL to the scan page, or download it.
@@ -121,18 +127,18 @@ export default function Whatsapp() {
             <div className="h-16 px-6 bg-white border-b border-gray-200 flex items-center gap-3 shadow-sm z-10 relative">
               <Avatar className="w-10 h-10">
                 <AvatarFallback className="bg-[#0F6E56] text-white">
-                  {conversationData?.agentName?.substring(0, 2) || "م"}
+                  {selectedAgentName?.substring(0, 2) || "م"}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-semibold text-gray-900">{conversationData?.agentName}</h3>
+                <h3 className="font-semibold text-gray-900">{selectedAgentName}</h3>
                 <p className="text-xs text-green-600">متصل</p>
               </div>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ backgroundImage: 'radial-gradient(#d1d5db 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-              {conversationData?.messages.map((msg) => {
+              {messages?.map((msg) => {
                 const isOutgoing = msg.direction === 'outgoing';
                 return (
                   <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>

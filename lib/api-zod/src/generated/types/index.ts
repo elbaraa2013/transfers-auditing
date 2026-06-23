@@ -7,7 +7,9 @@
  */
 
 export * from './agent';
+export * from './agentInput';
 export * from './agentStatement';
+export * from './changeAgentInput';
 export * from './conversation';
 export * from './healthStatus';
 export * from './inactiveAgent';
@@ -19,6 +21,7 @@ export * from './messageType';
 export * from './rejectInput';
 export * from './scanInput';
 export * from './scanResult';
+export * from './statementSummary';
 export * from './transfer';
 export * from './transferInput';
 export * from './transferRiskLevel';

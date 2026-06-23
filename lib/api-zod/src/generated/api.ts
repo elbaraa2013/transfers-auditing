@@ -152,6 +152,36 @@ export const ApproveTransferResponse = zod.object({
 
 
 /**
+ * @summary تغيير مندوب الحوالة قبل الاعتماد
+ */
+export const ChangeTransferAgentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ChangeTransferAgentBody = zod.object({
+  "agentId": zod.number()
+})
+
+export const ChangeTransferAgentResponse = zod.object({
+  "id": zod.number(),
+  "operationNumber": zod.string(),
+  "amount": zod.number(),
+  "fromAccount": zod.string(),
+  "toAccount": zod.string(),
+  "recipientName": zod.string(),
+  "comment": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "riskLevel": zod.enum(['low', 'medium', 'high']),
+  "riskScore": zod.number(),
+  "agentId": zod.number(),
+  "agentName": zod.string(),
+  "rejectionReason": zod.string().nullish(),
+  "transferDate": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary رفض حوالة
  */
 export const RejectTransferParams = zod.object({
@@ -194,6 +224,19 @@ export const ListAgentsResponseItem = zod.object({
   "pendingTransfers": zod.number()
 })
 export const ListAgentsResponse = zod.array(ListAgentsResponseItem)
+
+
+/**
+ * @summary إضافة مندوب جديد
+ */
+
+
+
+
+export const CreateAgentBody = zod.object({
+  "name": zod.string().min(1),
+  "phone": zod.string().min(1)
+})
 
 
 /**
@@ -245,6 +288,16 @@ export const GetAgentStatementResponse = zod.object({
   "pendingTransfers": zod.number()
 }),
   "balance": zod.number(),
+  "summary": zod.object({
+  "totalCount": zod.number(),
+  "approvedCount": zod.number(),
+  "pendingCount": zod.number(),
+  "rejectedCount": zod.number(),
+  "totalAmount": zod.number(),
+  "approvedAmount": zod.number(),
+  "pendingAmount": zod.number(),
+  "rejectedAmount": zod.number()
+}),
   "transfers": zod.array(zod.object({
   "id": zod.number(),
   "operationNumber": zod.string(),

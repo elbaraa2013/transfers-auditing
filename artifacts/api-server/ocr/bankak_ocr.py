@@ -33,25 +33,83 @@ from pytesseract import Output
 AR_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 
+def _upscale(img):
+    h, w = img.shape[:2]
+    longest = max(h, w)
+    if longest < 1800:
+        scale = 1800.0 / longest
+        img = cv2.resize(
+            img, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+        )
+    return img
+
+
 def load_gray(image_path):
     img = cv2.imread(image_path)
     if img is None:
         raise ValueError("could not read image")
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    h, w = gray.shape[:2]
-    longest = max(h, w)
-    if longest < 1800:
-        scale = 1800.0 / longest
-        gray = cv2.resize(
-            gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
-        )
-    return gray
+    return _upscale(gray)
 
 
-def ocr_lines(image, lang):
+def recipient_band_variants(image_path, band):
+    """Build high-contrast crops of a horizontal band (the recipient row).
+
+    Plain grayscale washes out white text on a colored (green/red) band, so
+    we add a CLAHE+Otsu luminance crop and a saturation-channel crop, which
+    turns white-on-color into clean dark-on-light. Cropping to the single row
+    keeps OCR fast and avoids the speckle that makes full-image binarization
+    crawl. `band` is (top, bottom) in *original* image pixels."""
+    img = cv2.imread(image_path)
+    if img is None:
+        return []
+    h = img.shape[0]
+    top = max(0, int(band[0]))
+    bottom = min(h, int(band[1]))
+    if bottom - top < 5:
+        return []
+    crop = img[top:bottom, :]
+
+    variants = []
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    eq = clahe.apply(gray)
+    variants.append(_upscale(eq))
+
+    # Aggressive contrast stretch — pulls faint dark-on-color ink off the band.
+    stretched = cv2.normalize(eq, None, 0, 255, cv2.NORM_MINMAX)
+    variants.append(_upscale(stretched))
+
+    _, otsu = cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    variants.append(_upscale(otsu))
+
+    # Saturation channel: white-on-color label and dark ink both read as
+    # dark-on-light once inverted.
+    sat = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)[:, :, 1]
+    sat_inv = cv2.bitwise_not(clahe.apply(sat))
+    variants.append(_upscale(sat_inv))
+
+    return variants
+
+
+def ocr_band_recipients(variants):
+    """OCR each band crop as a single line and return recipient candidates."""
+    candidates = []
+    for img in variants:
+        # psm 6: treat the crop as a uniform block — far more reliable than
+        # psm 4 on a thin single-row strip.
+        for line in ocr_lines(img, "ara+eng", psm=6):
+            value = _line_arabic_value(line)
+            if value:
+                candidates.append(value)
+    return candidates
+
+
+def ocr_lines(image, lang, psm=4):
     """Return list of line dicts, words ordered left->right (visual order)."""
     data = pytesseract.image_to_data(
-        image, lang=lang, config="--psm 4", output_type=Output.DICT
+        image, lang=lang, config="--psm %d" % psm, output_type=Output.DICT
     )
 
     grouped = {}
@@ -81,6 +139,8 @@ def ocr_lines(image, lang):
         words.sort(key=lambda x: x["left"])  # visual left -> right
         top = min(w["top"] for w in words)
         bottom = max(w["top"] + w["height"] for w in words)
+        left = min(w["left"] for w in words)
+        right = max(w["left"] + w["width"] for w in words)
         confs = [w["conf"] for w in words]
         lines.append(
             {
@@ -88,6 +148,8 @@ def ocr_lines(image, lang):
                 "text": " ".join(w["text"] for w in words),
                 "top": top,
                 "bottom": bottom,
+                "left": left,
+                "right": right,
                 "center_y": (top + bottom) / 2.0,
                 "conf": sum(confs) / len(confs) if confs else 0.0,
             }
@@ -184,27 +246,138 @@ LABEL_TOKENS = {
 }
 
 
+def _line_arabic_value(line):
+    """Non-label Arabic tokens of a line in right-to-left reading order."""
+    kept = []
+    for tok in line["tokens"]:
+        norm = normalize_ar(tok)
+        if norm in LABEL_TOKENS:
+            continue
+        if not re.search(r"[\u0600-\u06FF]", tok):
+            continue  # drop non-arabic noise
+        kept.append(tok)
+    if kept:
+        return " ".join(reversed(kept)).strip()
+    return None
+
+
 def arabic_value(ar_lines, *needles):
     """Find a labeled line and return its non-label Arabic tokens in
     right-to-left reading order."""
     for line in ar_lines:
         if has_tokens(line["text"], *needles):
-            kept = []
-            for tok in line["tokens"]:
-                norm = normalize_ar(tok)
-                if norm in LABEL_TOKENS:
-                    continue
-                if not re.search(r"[\u0600-\u06FF]", tok):
-                    continue  # drop non-arabic noise
-                kept.append(tok)
-            if kept:
-                # tokens are in visual order; reverse for RTL reading order
-                return " ".join(reversed(kept)).strip()
+            value = _line_arabic_value(line)
+            if value:
+                return value
     return None
+
+
+def _ar_letters_len(text):
+    return len(re.findall(r"[\u0600-\u06FF]", text or ""))
+
+
+def find_recipient_band(ar_lines):
+    """Locate the recipient row and return its line dict (coords are in the
+    upscaled-gray space, divide by `scale` for original pixels)."""
+    for needles in (("المرسل",), ("المستفيد",), ("اسم",)):
+        for line in ar_lines:
+            if has_tokens(line["text"], *needles):
+                return line
+    return None
+
+
+_LABEL_WORDS = ("اسم", "المرسل", "اليه", "المستفيد", "التعليق")
+
+
+def _edit_distance(a, b):
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(
+                min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
+            )
+        prev = cur
+    return prev[-1]
+
+
+def _is_label_remnant(tok):
+    """True if `tok` is a garbled remnant of a field label (e.g. 'العا' from
+    'اليه') rather than part of the real name."""
+    norm = normalize_ar(tok)
+    n = _ar_letters_len(norm)
+    if n > 5:
+        return False
+    # Short tokens are often real names (e.g. 'علي' is edit-distance 2 from the
+    # label 'اليه'), so require a near-exact match for them.
+    allowed = 1 if n <= 3 else 2
+    return any(_edit_distance(norm, w) <= allowed for w in _LABEL_WORDS)
+
+
+def _clean_recipient_name(name):
+    """Strip leading/trailing garbage at the name's edges: label remnants
+    bleeding in from the field label, and short (<=3 letter) tokens that are a
+    prefix of an adjacent token (a truncated OCR duplicate, e.g. 'محمد محم')."""
+    if not name:
+        return name
+    tokens = name.split()
+
+    def drop_edges(toks):
+        changed = True
+        while changed and len(toks) > 1:
+            changed = False
+            if _is_label_remnant(toks[0]):
+                toks = toks[1:]
+                changed = True
+            if len(toks) > 1 and _is_label_remnant(toks[-1]):
+                toks = toks[:-1]
+                changed = True
+        # Adjacent prefix-duplicate fragments at the edges.
+        if len(toks) > 1 and _ar_letters_len(toks[0]) <= 3 and toks[1].startswith(toks[0]):
+            toks = toks[1:]
+        if len(toks) > 1 and _ar_letters_len(toks[-1]) <= 3 and toks[-2].startswith(toks[-1]):
+            toks = toks[:-1]
+        return toks
+
+    return " ".join(drop_edges(tokens))
+
+
+def best_recipient(image_path, ar_lines, scale):
+    """Pick the richest recipient value.
+
+    The recipient label is "المرسل اليه". On colored receipts the name is
+    white-on-color, so the plain pass returns null or a truncated fragment.
+    When that happens we re-OCR only the recipient row with contrast-enhanced
+    crops and keep the candidate with the most Arabic letters."""
+    candidates = []
+    primary = arabic_value(ar_lines, "المرسل") or arabic_value(ar_lines, "المستفيد")
+    if primary:
+        candidates.append(primary)
+
+    # Only pay for the extra crops when the plain pass is weak.
+    if not primary or _ar_letters_len(primary) < 4:
+        label = find_recipient_band(ar_lines)
+        if label:
+            h = label["bottom"] - label["top"]
+            # The value name is often larger and sits lower than the label's
+            # first line (the label can wrap to two rows), so pad below.
+            top = (label["top"] - h * 0.6) / scale
+            bottom = (label["bottom"] + h * 1.6) / scale
+            try:
+                variants = recipient_band_variants(image_path, (top, bottom))
+                candidates.extend(ocr_band_recipients(variants))
+            except Exception:  # noqa: BLE001 — enhancement is best-effort
+                pass
+
+    if not candidates:
+        return None
+    return _clean_recipient_name(max(candidates, key=_ar_letters_len))
 
 
 def extract(image_path):
     gray = load_gray(image_path)
+    orig = cv2.imread(image_path)
+    scale = (max(gray.shape[:2]) / max(orig.shape[:2])) if orig is not None else 1.0
     ar_lines = ocr_lines(gray, "ara+eng")
     eng_lines = ocr_lines(gray, "eng")
 
@@ -216,7 +389,7 @@ def extract(image_path):
     amount = extract_amount(eng_lines)
     transfer_date = extract_date(eng_lines)
 
-    recipient = arabic_value(ar_lines, "المرسل") or arabic_value(ar_lines, "المستفيد")
+    recipient = best_recipient(image_path, ar_lines, scale)
     comment = arabic_value(ar_lines, "التعليق")
 
     fields = [operation_number, amount, from_account, to_account, recipient, transfer_date]
