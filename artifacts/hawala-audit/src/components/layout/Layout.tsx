@@ -1,7 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FileText, ScanLine, CheckSquare, UserX, BookOpen, MessageCircle, Landmark, LogOut } from "lucide-react";
+import { useState } from "react";
+import { LayoutDashboard, FileText, ScanLine, CheckSquare, UserX, BookOpen, MessageCircle, Landmark, LogOut, Download, Loader2 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/react";
 import { useHealthCheck } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -21,7 +23,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: health } = useHealthCheck();
   const { signOut } = useClerk();
   const { user } = useUser();
+  const { toast } = useToast();
   const userEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+  const [isBackingUp, setIsBackingUp] = useState(false);
+
+  const handleBackup = async () => {
+    if (isBackingUp) return;
+    setIsBackingUp(true);
+    try {
+      const res = await fetch("/api/backup", { credentials: "include" });
+      if (!res.ok) throw new Error("backup failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hawala-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: "تم تنزيل النسخة الاحتياطية" });
+    } catch {
+      toast({ title: "تعذّر إنشاء النسخة الاحتياطية", variant: "destructive" });
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
   
   // Simulation of alerts, would normally come from specific queries.
   const hasPendingScans = true; 
@@ -78,6 +105,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {userEmail}
               </span>
             )}
+            <button
+              type="button"
+              onClick={handleBackup}
+              disabled={isBackingUp}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-[#0F6E56] hover:bg-emerald-50 transition-colors disabled:opacity-60"
+            >
+              {isBackingUp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              <span>نسخة احتياطية</span>
+            </button>
             <button
               type="button"
               onClick={() => signOut({ redirectUrl: basePath || "/" })}
