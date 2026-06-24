@@ -33,7 +33,8 @@ export interface Transfer {
   amount: number;
   fromAccount: string;
   toAccount: string;
-  recipientName: string;
+  /** @nullable */
+  recipientName?: string | null;
   /** @nullable */
   comment?: string | null;
   status: TransferStatus;
@@ -53,7 +54,7 @@ export interface TransferInput {
   amount: number;
   fromAccount: string;
   toAccount: string;
-  recipientName: string;
+  recipientName?: string;
   comment?: string;
   agentId: number;
   riskScore: number;

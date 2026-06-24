@@ -12,7 +12,7 @@ export const transfersTable = pgTable(
     amount: numeric("amount", { precision: 15, scale: 2 }).notNull(),
     fromAccount: text("from_account").notNull(),
     toAccount: text("to_account").notNull(),
-    recipientName: text("recipient_name").notNull(),
+    recipientName: text("recipient_name"),
     comment: text("comment"),
     status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
     riskScore: real("risk_score").notNull().default(0),

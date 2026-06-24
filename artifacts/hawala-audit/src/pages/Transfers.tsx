@@ -203,7 +203,7 @@ export default function Transfers() {
                       <TableCell className="font-medium font-mono text-sm">{transfer.operationNumber}</TableCell>
                       <TableCell>{formatDate(transfer.createdAt)}</TableCell>
                       <TableCell>{transfer.agentName}</TableCell>
-                      <TableCell>{transfer.recipientName}</TableCell>
+                      <TableCell>{transfer.recipientName || "—"}</TableCell>
                       <TableCell className="font-bold">{formatCurrency(transfer.amount)}</TableCell>
                       <TableCell className="text-center">{getRiskBadge(transfer.riskLevel)}</TableCell>
                       <TableCell className="text-center">{getStatusBadge(transfer.status)}</TableCell>

@@ -37,7 +37,6 @@ function missingFieldsOf(result: ScanResult | null): string[] {
     result.amount == null && "المبلغ",
     !result.fromAccount && "من حساب",
     !result.toAccount && "إلى حساب",
-    !result.recipientName && "المرسل إليه",
   ].filter(Boolean) as string[];
 }
 
@@ -59,6 +58,15 @@ export default function Scan() {
 
   const patchItem = (id: string, patch: Partial<ScanItem>) =>
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+
+  const setRecipient = (id: string, value: string) =>
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === id && it.result
+          ? { ...it, result: { ...it.result, recipientName: value || null } }
+          : it,
+      ),
+    );
 
   const addFiles = (files: FileList | File[]) => {
     if (selectedAgentId == null) return;
@@ -138,8 +146,7 @@ export default function Scan() {
       !r.operationNumber ||
       r.amount == null ||
       !r.fromAccount ||
-      !r.toAccount ||
-      !r.recipientName
+      !r.toAccount
     ) {
       return false;
     }
@@ -151,7 +158,7 @@ export default function Scan() {
           amount: r.amount,
           fromAccount: r.fromAccount,
           toAccount: r.toAccount,
-          recipientName: r.recipientName,
+          recipientName: r.recipientName?.trim() || undefined,
           comment: r.comment || undefined,
           agentId: item.agentId,
           riskScore: r.riskScore,
@@ -368,7 +375,12 @@ export default function Scan() {
                             label="المبلغ"
                             value={item.result.amount != null ? formatCurrency(item.result.amount) : null}
                           />
-                          <Field label="المرسل إليه" value={item.result.recipientName} />
+                          <EditableField
+                            label="المرسل إليه"
+                            value={item.result.recipientName}
+                            onChange={(v) => setRecipient(item.id, v)}
+                            disabled={item.status === "registering" || item.status === "registered"}
+                          />
                           <Field label="من حساب" value={item.result.fromAccount} />
                           <Field label="إلى حساب" value={item.result.toAccount} />
                           <Field
@@ -399,6 +411,32 @@ export default function Scan() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function EditableField({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value?: string | null;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-center gap-2 border-b border-gray-100 pb-1">
+      <span className="text-gray-500 flex-shrink-0">{label}</span>
+      <input
+        type="text"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        placeholder="اكتب الاسم يدوياً..."
+        className="font-medium text-right outline-none bg-transparent border-b border-dashed border-gray-300 focus:border-[#0F6E56] min-w-0 flex-1 text-sm placeholder:text-gray-300 placeholder:font-normal disabled:border-transparent"
+      />
     </div>
   );
 }

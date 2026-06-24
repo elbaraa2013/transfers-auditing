@@ -14,7 +14,8 @@ export interface Transfer {
   amount: number;
   fromAccount: string;
   toAccount: string;
-  recipientName: string;
+  /** @nullable */
+  recipientName?: string | null;
   /** @nullable */
   comment?: string | null;
   status: TransferStatus;

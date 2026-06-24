@@ -130,7 +130,7 @@ export default function Overview() {
                       <TableCell className="font-medium font-mono text-sm">{transfer.operationNumber}</TableCell>
                       <TableCell>{new Date(transfer.createdAt).toLocaleDateString('ar-SA')}</TableCell>
                       <TableCell>{transfer.agentName}</TableCell>
-                      <TableCell>{transfer.recipientName}</TableCell>
+                      <TableCell>{transfer.recipientName || "—"}</TableCell>
                       <TableCell className="font-bold">{formatMoney(transfer.amount)}</TableCell>
                       <TableCell className="text-center">{getRiskBadge(transfer.riskLevel)}</TableCell>
                       <TableCell className="text-center">{getStatusBadge(transfer.status)}</TableCell>

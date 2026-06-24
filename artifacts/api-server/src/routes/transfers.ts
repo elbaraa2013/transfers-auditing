@@ -93,7 +93,7 @@ router.post("/transfers", async (req, res) => {
     amount: String(amount),
     fromAccount,
     toAccount,
-    recipientName,
+    recipientName: recipientName ?? null,
     comment,
     agentId,
     riskScore: score,

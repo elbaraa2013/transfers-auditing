@@ -11,7 +11,7 @@ export interface TransferInput {
   amount: number;
   fromAccount: string;
   toAccount: string;
-  recipientName: string;
+  recipientName?: string;
   comment?: string;
   agentId: number;
   riskScore: number;

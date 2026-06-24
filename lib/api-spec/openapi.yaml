@@ -373,7 +373,6 @@ components:
         - amount
         - fromAccount
         - toAccount
-        - recipientName
         - status
         - riskLevel
         - riskScore
@@ -392,7 +391,7 @@ components:
         toAccount:
           type: string
         recipientName:
-          type: string
+          type: ["string", "null"]
         comment:
           type: ["string", "null"]
         status:
@@ -421,7 +420,6 @@ components:
         - amount
         - fromAccount
         - toAccount
-        - recipientName
         - agentId
         - riskScore
       properties:

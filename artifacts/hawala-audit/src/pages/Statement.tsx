@@ -271,7 +271,7 @@ export default function Statement() {
                         <TableRow key={transfer.id} className="hover:bg-gray-50">
                           <TableCell className="text-sm">{formatDateTime(transfer.createdAt)}</TableCell>
                           <TableCell className="font-mono text-sm">{transfer.operationNumber}</TableCell>
-                          <TableCell>{transfer.recipientName}</TableCell>
+                          <TableCell>{transfer.recipientName || "—"}</TableCell>
                           <TableCell className="font-bold text-gray-900">{formatCurrency(transfer.amount)}</TableCell>
                           <TableCell className="text-center">{getStatusBadge(transfer.status)}</TableCell>
                           <TableCell className="text-center no-print">
