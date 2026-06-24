@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { transfersTable, agentsTable } from "@workspace/db";
-import { eq, desc, sql, and, like, isNull } from "drizzle-orm";
+import { eq, desc, and, type SQL } from "drizzle-orm";
 
 const router = Router();
 
@@ -33,9 +33,10 @@ async function buildTransferResponse(transfer: typeof transfersTable.$inferSelec
 
 // GET /api/transfers
 router.get("/transfers", async (req, res) => {
+  const ownerId = req.userId!;
   const { status, agentId, search } = req.query as Record<string, string>;
 
-  const conditions: ReturnType<typeof eq>[] = [];
+  const conditions: SQL[] = [eq(transfersTable.ownerId, ownerId)];
   if (status && ["pending", "approved", "rejected"].includes(status)) {
     conditions.push(eq(transfersTable.status, status as "pending" | "approved" | "rejected"));
   }
@@ -50,12 +51,8 @@ router.get("/transfers", async (req, res) => {
       agentName: agentsTable.name,
     })
     .from(transfersTable)
-    .innerJoin(agentsTable, eq(transfersTable.agentId, agentsTable.id))
-    .where(
-      conditions.length > 0
-        ? and(...conditions)
-        : undefined
-    )
+    .innerJoin(agentsTable, and(eq(transfersTable.agentId, agentsTable.id), eq(agentsTable.ownerId, ownerId)))
+    .where(and(...conditions))
     .orderBy(desc(transfersTable.createdAt));
 
   let results = rows;
@@ -74,9 +71,14 @@ router.get("/transfers", async (req, res) => {
 
 // POST /api/transfers
 router.post("/transfers", async (req, res) => {
+  const ownerId = req.userId!;
   const { operationNumber, amount, fromAccount, toAccount, recipientName, comment, agentId, riskScore, transferDate } = req.body;
 
-  const agent = await db.select().from(agentsTable).where(eq(agentsTable.id, agentId)).limit(1);
+  const agent = await db
+    .select()
+    .from(agentsTable)
+    .where(and(eq(agentsTable.id, agentId), eq(agentsTable.ownerId, ownerId)))
+    .limit(1);
   if (!agent.length) {
     res.status(404).json({ error: "المندوب غير موجود" });
     return;
@@ -86,6 +88,7 @@ router.post("/transfers", async (req, res) => {
   const riskLevel = getRiskLevel(score);
 
   const [created] = await db.insert(transfersTable).values({
+    ownerId,
     operationNumber,
     amount: String(amount),
     fromAccount,
@@ -100,14 +103,15 @@ router.post("/transfers", async (req, res) => {
   }).returning();
 
   // Update agent last activity
-  await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(eq(agentsTable.id, agentId));
+  await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(and(eq(agentsTable.id, agentId), eq(agentsTable.ownerId, ownerId)));
 
   res.status(201).json(await buildTransferResponse(created, agent[0].name));
 });
 
 // GET /api/transfers/stats
 router.get("/transfers/stats", async (req, res) => {
-  const all = await db.select().from(transfersTable);
+  const ownerId = req.userId!;
+  const all = await db.select().from(transfersTable).where(eq(transfersTable.ownerId, ownerId));
 
   const stats = {
     total: all.length,
@@ -125,14 +129,15 @@ router.get("/transfers/stats", async (req, res) => {
 
 // GET /api/transfers/pending
 router.get("/transfers/pending", async (req, res) => {
+  const ownerId = req.userId!;
   const rows = await db
     .select({
       transfer: transfersTable,
       agentName: agentsTable.name,
     })
     .from(transfersTable)
-    .innerJoin(agentsTable, eq(transfersTable.agentId, agentsTable.id))
-    .where(eq(transfersTable.status, "pending"))
+    .innerJoin(agentsTable, and(eq(transfersTable.agentId, agentsTable.id), eq(agentsTable.ownerId, ownerId)))
+    .where(and(eq(transfersTable.ownerId, ownerId), eq(transfersTable.status, "pending")))
     .orderBy(desc(transfersTable.createdAt));
 
   const transfers = await Promise.all(rows.map((r) => buildTransferResponse(r.transfer, r.agentName)));
@@ -141,12 +146,13 @@ router.get("/transfers/pending", async (req, res) => {
 
 // GET /api/transfers/:id
 router.get("/transfers/:id", async (req, res) => {
+  const ownerId = req.userId!;
   const id = parseInt(req.params.id);
   const rows = await db
     .select({ transfer: transfersTable, agentName: agentsTable.name })
     .from(transfersTable)
-    .innerJoin(agentsTable, eq(transfersTable.agentId, agentsTable.id))
-    .where(eq(transfersTable.id, id))
+    .innerJoin(agentsTable, and(eq(transfersTable.agentId, agentsTable.id), eq(agentsTable.ownerId, ownerId)))
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
     .limit(1);
 
   if (!rows.length) {
@@ -159,8 +165,13 @@ router.get("/transfers/:id", async (req, res) => {
 
 // PATCH /api/transfers/:id/approve
 router.patch("/transfers/:id/approve", async (req, res) => {
+  const ownerId = req.userId!;
   const id = parseInt(req.params.id);
-  const rows = await db.select().from(transfersTable).where(eq(transfersTable.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(transfersTable)
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
+    .limit(1);
 
   if (!rows.length) {
     res.status(404).json({ error: "الحوالة غير موجودة" });
@@ -175,15 +186,16 @@ router.patch("/transfers/:id/approve", async (req, res) => {
   const [updated] = await db
     .update(transfersTable)
     .set({ status: "approved" })
-    .where(eq(transfersTable.id, id))
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
     .returning();
 
-  const agent = await db.select().from(agentsTable).where(eq(agentsTable.id, updated.agentId)).limit(1);
+  const agent = await db.select().from(agentsTable).where(and(eq(agentsTable.id, updated.agentId), eq(agentsTable.ownerId, ownerId))).limit(1);
   res.json(await buildTransferResponse(updated, agent[0]?.name ?? ""));
 });
 
 // PATCH /api/transfers/:id/agent
 router.patch("/transfers/:id/agent", async (req, res) => {
+  const ownerId = req.userId!;
   const id = parseInt(req.params.id);
   const newAgentId = Number(req.body?.agentId);
 
@@ -192,7 +204,11 @@ router.patch("/transfers/:id/agent", async (req, res) => {
     return;
   }
 
-  const agent = await db.select().from(agentsTable).where(eq(agentsTable.id, newAgentId)).limit(1);
+  const agent = await db
+    .select()
+    .from(agentsTable)
+    .where(and(eq(agentsTable.id, newAgentId), eq(agentsTable.ownerId, ownerId)))
+    .limit(1);
   if (!agent.length) {
     res.status(404).json({ error: "المندوب غير موجود" });
     return;
@@ -204,14 +220,14 @@ router.patch("/transfers/:id/agent", async (req, res) => {
   const [updated] = await db
     .update(transfersTable)
     .set({ agentId: newAgentId })
-    .where(and(eq(transfersTable.id, id), eq(transfersTable.status, "pending")))
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId), eq(transfersTable.status, "pending")))
     .returning();
 
   if (!updated) {
     const existing = await db
       .select({ status: transfersTable.status })
       .from(transfersTable)
-      .where(eq(transfersTable.id, id))
+      .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
       .limit(1);
     if (!existing.length) {
       res.status(404).json({ error: "الحوالة غير موجودة" });
@@ -221,15 +237,20 @@ router.patch("/transfers/:id/agent", async (req, res) => {
     return;
   }
 
-  await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(eq(agentsTable.id, newAgentId));
+  await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(and(eq(agentsTable.id, newAgentId), eq(agentsTable.ownerId, ownerId)));
 
   res.json(await buildTransferResponse(updated, agent[0].name));
 });
 
 // PATCH /api/transfers/:id/reject
 router.patch("/transfers/:id/reject", async (req, res) => {
+  const ownerId = req.userId!;
   const id = parseInt(req.params.id);
-  const rows = await db.select().from(transfersTable).where(eq(transfersTable.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(transfersTable)
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
+    .limit(1);
 
   if (!rows.length) {
     res.status(404).json({ error: "الحوالة غير موجودة" });
@@ -246,10 +267,10 @@ router.patch("/transfers/:id/reject", async (req, res) => {
   const [updated] = await db
     .update(transfersTable)
     .set({ status: "rejected", rejectionReason: reason })
-    .where(eq(transfersTable.id, id))
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
     .returning();
 
-  const agent = await db.select().from(agentsTable).where(eq(agentsTable.id, updated.agentId)).limit(1);
+  const agent = await db.select().from(agentsTable).where(and(eq(agentsTable.id, updated.agentId), eq(agentsTable.ownerId, ownerId))).limit(1);
   res.json(await buildTransferResponse(updated, agent[0]?.name ?? ""));
 });
 

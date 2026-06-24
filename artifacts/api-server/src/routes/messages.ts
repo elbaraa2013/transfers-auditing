@@ -1,20 +1,21 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { messagesTable, agentsTable } from "@workspace/db";
-import { eq, desc, count, and } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const router = Router();
 
 // GET /api/messages
 router.get("/messages", async (req, res) => {
-  const agents = await db.select().from(agentsTable);
+  const ownerId = req.userId!;
+  const agents = await db.select().from(agentsTable).where(eq(agentsTable.ownerId, ownerId));
 
   const conversations = await Promise.all(
     agents.map(async (agent) => {
       const msgs = await db
         .select()
         .from(messagesTable)
-        .where(eq(messagesTable.agentId, agent.id))
+        .where(and(eq(messagesTable.agentId, agent.id), eq(messagesTable.ownerId, ownerId)))
         .orderBy(desc(messagesTable.sentAt))
         .limit(1);
 
@@ -26,6 +27,7 @@ router.get("/messages", async (req, res) => {
         .where(
           and(
             eq(messagesTable.agentId, agent.id),
+            eq(messagesTable.ownerId, ownerId),
             eq(messagesTable.isRead, false),
             eq(messagesTable.direction, "incoming")
           )
@@ -46,12 +48,24 @@ router.get("/messages", async (req, res) => {
 
 // GET /api/messages/:agentId
 router.get("/messages/:agentId", async (req, res) => {
+  const ownerId = req.userId!;
   const agentId = parseInt(req.params.agentId);
+
+  // Ensure the agent belongs to this account before exposing messages.
+  const agent = await db
+    .select({ id: agentsTable.id })
+    .from(agentsTable)
+    .where(and(eq(agentsTable.id, agentId), eq(agentsTable.ownerId, ownerId)))
+    .limit(1);
+  if (!agent.length) {
+    res.status(404).json({ error: "المندوب غير موجود" });
+    return;
+  }
 
   const msgs = await db
     .select()
     .from(messagesTable)
-    .where(eq(messagesTable.agentId, agentId))
+    .where(and(eq(messagesTable.agentId, agentId), eq(messagesTable.ownerId, ownerId)))
     .orderBy(messagesTable.sentAt);
 
   // Mark as read
@@ -61,6 +75,7 @@ router.get("/messages/:agentId", async (req, res) => {
     .where(
       and(
         eq(messagesTable.agentId, agentId),
+        eq(messagesTable.ownerId, ownerId),
         eq(messagesTable.direction, "incoming")
       )
     );

@@ -1,10 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FileText, ScanLine, CheckSquare, UserX, BookOpen, MessageCircle, Landmark } from "lucide-react";
+import { LayoutDashboard, FileText, ScanLine, CheckSquare, UserX, BookOpen, MessageCircle, Landmark, LogOut } from "lucide-react";
+import { useClerk, useUser } from "@clerk/react";
 import { useHealthCheck } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 const navigation = [
-  { name: "نظرة عامة", href: "/", icon: LayoutDashboard },
+  { name: "نظرة عامة", href: "/overview", icon: LayoutDashboard },
   { name: "إدارة الحوالات", href: "/transfers", icon: FileText },
   { name: "مسح الحوالات", href: "/scan", icon: ScanLine, alert: true },
   { name: "المطابقة اليومية", href: "/matching", icon: CheckSquare, alert: true },
@@ -16,6 +19,9 @@ const navigation = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: health } = useHealthCheck();
+  const { signOut } = useClerk();
+  const { user } = useUser();
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? "";
   
   // Simulation of alerts, would normally come from specific queries.
   const hasPendingScans = true; 
@@ -62,11 +68,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {navigation.find(n => n.href === location)?.name || "نظام تدقيق الحوالات"}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <span className="text-xs font-medium text-emerald-800">متصل</span>
             </div>
+            {userEmail && (
+              <span className="text-sm text-gray-600 max-w-[180px] truncate" title={userEmail}>
+                {userEmail}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => signOut({ redirectUrl: basePath || "/" })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-[#DC2626] transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>خروج</span>
+            </button>
           </div>
         </header>
 

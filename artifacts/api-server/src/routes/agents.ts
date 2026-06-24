@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { agentsTable, transfersTable, insertAgentSchema } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const router = Router();
 
@@ -31,11 +31,19 @@ function buildAgentResponse(
 
 // GET /api/agents
 router.get("/agents", async (req, res) => {
-  const agents = await db.select().from(agentsTable).orderBy(agentsTable.name);
+  const ownerId = req.userId!;
+  const agents = await db
+    .select()
+    .from(agentsTable)
+    .where(eq(agentsTable.ownerId, ownerId))
+    .orderBy(agentsTable.name);
 
   const result = await Promise.all(
     agents.map(async (agent) => {
-      const transfers = await db.select().from(transfersTable).where(eq(transfersTable.agentId, agent.id));
+      const transfers = await db
+        .select()
+        .from(transfersTable)
+        .where(and(eq(transfersTable.agentId, agent.id), eq(transfersTable.ownerId, ownerId)));
       return buildAgentResponse(agent, transfers);
     })
   );
@@ -45,6 +53,7 @@ router.get("/agents", async (req, res) => {
 
 // POST /api/agents
 router.post("/agents", async (req, res) => {
+  const ownerId = req.userId!;
   const parsed = insertAgentSchema
     .pick({ name: true, phone: true })
     .safeParse(req.body);
@@ -62,7 +71,7 @@ router.post("/agents", async (req, res) => {
 
   const [created] = await db
     .insert(agentsTable)
-    .values({ name, phone })
+    .values({ name, phone, ownerId })
     .returning();
 
   res.status(201).json(buildAgentResponse(created, []));
@@ -70,9 +79,13 @@ router.post("/agents", async (req, res) => {
 
 // GET /api/agents/inactive
 router.get("/agents/inactive", async (req, res) => {
-  const agents = await db.select().from(agentsTable).orderBy(agentsTable.lastActivityAt);
+  const ownerId = req.userId!;
+  const agents = await db
+    .select()
+    .from(agentsTable)
+    .where(eq(agentsTable.ownerId, ownerId))
+    .orderBy(agentsTable.lastActivityAt);
   const now = Date.now();
-  const THRESHOLD_MS = 48 * 60 * 60 * 1000;
 
   const inactive = agents
     .map((a) => {
@@ -94,23 +107,13 @@ router.get("/agents/inactive", async (req, res) => {
 
 // GET /api/agents/:id
 router.get("/agents/:id", async (req, res) => {
+  const ownerId = req.userId!;
   const id = parseInt(req.params.id);
-  const agents = await db.select().from(agentsTable).where(eq(agentsTable.id, id)).limit(1);
-
-  if (!agents.length) {
-    res.status(404).json({ error: "المندوب غير موجود" });
-    return;
-  }
-
-  const transfers = await db.select().from(transfersTable).where(eq(transfersTable.agentId, id));
-
-  res.json(buildAgentResponse(agents[0], transfers));
-});
-
-// GET /api/agents/:id/statement
-router.get("/agents/:id/statement", async (req, res) => {
-  const id = parseInt(req.params.id);
-  const agents = await db.select().from(agentsTable).where(eq(agentsTable.id, id)).limit(1);
+  const agents = await db
+    .select()
+    .from(agentsTable)
+    .where(and(eq(agentsTable.id, id), eq(agentsTable.ownerId, ownerId)))
+    .limit(1);
 
   if (!agents.length) {
     res.status(404).json({ error: "المندوب غير موجود" });
@@ -120,7 +123,30 @@ router.get("/agents/:id/statement", async (req, res) => {
   const transfers = await db
     .select()
     .from(transfersTable)
-    .where(eq(transfersTable.agentId, id))
+    .where(and(eq(transfersTable.agentId, id), eq(transfersTable.ownerId, ownerId)));
+
+  res.json(buildAgentResponse(agents[0], transfers));
+});
+
+// GET /api/agents/:id/statement
+router.get("/agents/:id/statement", async (req, res) => {
+  const ownerId = req.userId!;
+  const id = parseInt(req.params.id);
+  const agents = await db
+    .select()
+    .from(agentsTable)
+    .where(and(eq(agentsTable.id, id), eq(agentsTable.ownerId, ownerId)))
+    .limit(1);
+
+  if (!agents.length) {
+    res.status(404).json({ error: "المندوب غير موجود" });
+    return;
+  }
+
+  const transfers = await db
+    .select()
+    .from(transfersTable)
+    .where(and(eq(transfersTable.agentId, id), eq(transfersTable.ownerId, ownerId)))
     .orderBy(desc(transfersTable.createdAt));
 
   const transfersFormatted = transfers.map((t) => ({
