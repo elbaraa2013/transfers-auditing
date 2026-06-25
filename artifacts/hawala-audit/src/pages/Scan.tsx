@@ -35,8 +35,6 @@ function missingFieldsOf(result: ScanResult | null): string[] {
   return [
     !result.operationNumber && "رقم العملية",
     result.amount == null && "المبلغ",
-    !result.fromAccount && "من حساب",
-    !result.toAccount && "إلى حساب",
   ].filter(Boolean) as string[];
 }
 
@@ -59,11 +57,15 @@ export default function Scan() {
   const patchItem = (id: string, patch: Partial<ScanItem>) =>
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
 
-  const setRecipient = (id: string, value: string) =>
+  const setField = (
+    id: string,
+    key: "recipientName" | "fromAccount" | "toAccount",
+    value: string,
+  ) =>
     setItems((prev) =>
       prev.map((it) =>
         it.id === id && it.result
-          ? { ...it, result: { ...it.result, recipientName: value || null } }
+          ? { ...it, result: { ...it.result, [key]: value || null } }
           : it,
       ),
     );
@@ -144,9 +146,7 @@ export default function Scan() {
     if (
       !r ||
       !r.operationNumber ||
-      r.amount == null ||
-      !r.fromAccount ||
-      !r.toAccount
+      r.amount == null
     ) {
       return false;
     }
@@ -156,8 +156,8 @@ export default function Scan() {
         data: {
           operationNumber: r.operationNumber,
           amount: r.amount,
-          fromAccount: r.fromAccount,
-          toAccount: r.toAccount,
+          fromAccount: r.fromAccount?.trim() || undefined,
+          toAccount: r.toAccount?.trim() || undefined,
           recipientName: r.recipientName?.trim() || undefined,
           comment: r.comment || undefined,
           agentId: item.agentId,
@@ -378,11 +378,23 @@ export default function Scan() {
                           <EditableField
                             label="المرسل إليه"
                             value={item.result.recipientName}
-                            onChange={(v) => setRecipient(item.id, v)}
+                            onChange={(v) => setField(item.id, "recipientName", v)}
                             disabled={item.status === "registering" || item.status === "registered"}
                           />
-                          <Field label="من حساب" value={item.result.fromAccount} />
-                          <Field label="إلى حساب" value={item.result.toAccount} />
+                          <EditableField
+                            label="من حساب"
+                            value={item.result.fromAccount}
+                            onChange={(v) => setField(item.id, "fromAccount", v)}
+                            placeholder="اكتب الحساب يدوياً..."
+                            disabled={item.status === "registering" || item.status === "registered"}
+                          />
+                          <EditableField
+                            label="إلى حساب"
+                            value={item.result.toAccount}
+                            onChange={(v) => setField(item.id, "toAccount", v)}
+                            placeholder="اكتب الحساب يدوياً..."
+                            disabled={item.status === "registering" || item.status === "registered"}
+                          />
                           <Field
                             label="التاريخ"
                             value={item.result.transferDate ? formatDateTime(item.result.transferDate) : null}
@@ -420,11 +432,13 @@ function EditableField({
   value,
   onChange,
   disabled,
+  placeholder = "اكتب الاسم يدوياً...",
 }: {
   label: string;
   value?: string | null;
   onChange: (value: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }) {
   return (
     <div className="flex justify-between items-center gap-2 border-b border-gray-100 pb-1">
@@ -434,7 +448,7 @@ function EditableField({
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        placeholder="اكتب الاسم يدوياً..."
+        placeholder={placeholder}
         className="font-medium text-right outline-none bg-transparent border-b border-dashed border-gray-300 focus:border-[#0F6E56] min-w-0 flex-1 text-sm placeholder:text-gray-300 placeholder:font-normal disabled:border-transparent"
       />
     </div>

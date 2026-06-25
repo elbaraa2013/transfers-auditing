@@ -9,8 +9,8 @@
 export interface TransferInput {
   operationNumber: string;
   amount: number;
-  fromAccount: string;
-  toAccount: string;
+  fromAccount?: string;
+  toAccount?: string;
   recipientName?: string;
   comment?: string;
   agentId: number;

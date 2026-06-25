@@ -12,8 +12,10 @@ export interface Transfer {
   id: number;
   operationNumber: string;
   amount: number;
-  fromAccount: string;
-  toAccount: string;
+  /** @nullable */
+  fromAccount?: string | null;
+  /** @nullable */
+  toAccount?: string | null;
   /** @nullable */
   recipientName?: string | null;
   /** @nullable */
