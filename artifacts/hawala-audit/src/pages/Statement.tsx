@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft } from "lucide-react";
 
@@ -269,7 +269,7 @@ export default function Statement() {
                     ) : (
                       statement.transfers.map(transfer => (
                         <TableRow key={transfer.id} className="hover:bg-gray-50">
-                          <TableCell className="text-sm">{formatDateTime(transfer.createdAt)}</TableCell>
+                          <TableCell className="text-sm">{transfer.transferDate ? formatDate(transfer.transferDate) : formatDateTime(transfer.createdAt)}</TableCell>
                           <TableCell className="font-mono text-sm">{transfer.operationNumber}</TableCell>
                           <TableCell>{transfer.recipientName || "—"}</TableCell>
                           <TableCell className="font-bold text-gray-900">{formatCurrency(transfer.amount)}</TableCell>
