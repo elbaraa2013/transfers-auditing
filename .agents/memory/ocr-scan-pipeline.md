@@ -29,6 +29,13 @@ called from Node by spawning the venv Python against `artifacts/api-server/ocr/b
 - Clean label remnants bleeding into the value via Levenshtein vs label words {اسم,المرسل,اليه,المستفيد,التعليق}: threshold ≤1 for short tokens (≤3 letters), ≤2 for len 4-5 — because real short names collide (e.g. "علي" is edit-distance 2 from "اليه"). Also drop short edge tokens that are a prefix of an adjacent token (truncated OCR dup).
 - Pick the candidate with the most Arabic letters across primary + band variants.
 
+**Numeric fields on colored digital screenshots (white digits on a saturated gradient):**
+- Grayscale collapses white-on-color contrast → the gray `eng` pass returns null/0 for accounts, amount and date even though the operation number still reads. Recover from the **HSV brightness (V) channel + CLAHE** (`value_channel()`), which keeps white text crisp.
+- Run the recovery only when the page looks colored (`mean_saturation > 90`) OR the gray pass came up short — keeps normal photos on the cheap 2-pass path (no regression).
+- `eng --psm 3` over the full V channel reads both 16-digit account groups and the amount. The **date row (month name + glued time) only survives `--psm 11` (sparse)**, but psm 11 on the full image is ~22s — crop to the data card (height 25%–75%) and it drops to ~4s while still reading the date.
+- Treat a gray-pass amount of `0` as missing (`not amount`), not just `None` — a misread "000,000.00" parses to 0 and would otherwise block re-extraction.
+- These extra passes push worst-case ~33s, so the scan.ts subprocess timeout was raised **30s → 60s**.
+
 **How to apply / constraints:**
 - Spawn the venv python at `<repoRoot>/.pythonlibs/bin/python` (resolve from `import.meta.url`, not `process.cwd()`, so deploy works); supports `OCR_PYTHON_BIN` / `OCR_SCRIPT_PATH` env overrides.
 - esbuild bundles api-server to `dist/index.mjs` (ESM), so `import.meta.url` is available; the `ocr/` dir is NOT bundled — it must ship alongside the package and be referenced by absolute path.

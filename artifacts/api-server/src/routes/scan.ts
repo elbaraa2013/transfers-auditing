@@ -27,7 +27,7 @@ function resolveOcrScript(): string {
 
 const PYTHON_BIN = resolvePythonBin();
 const OCR_SCRIPT = resolveOcrScript();
-const OCR_TIMEOUT_MS = 30_000;
+const OCR_TIMEOUT_MS = 60_000;
 
 interface OcrResult {
   operationNumber: string | null;

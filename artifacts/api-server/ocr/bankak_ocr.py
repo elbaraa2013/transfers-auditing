@@ -52,6 +52,21 @@ def load_gray(image_path):
     return _upscale(gray)
 
 
+def value_channel(img_bgr):
+    """CLAHE-equalized HSV brightness (V) channel.
+
+    Digital Bankak screenshots are white text on a saturated green gradient.
+    Plain grayscale collapses that contrast and loses the digit rows, but the
+    V channel keeps white text crisp, so it reads account groups, the amount
+    and the date far better than grayscale on colored receipts."""
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+    return clahe.apply(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)[:, :, 2])
+
+
+def mean_saturation(img_bgr):
+    return float(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)[:, :, 1].mean())
+
+
 def recipient_band_variants(image_path, band):
     """Build high-contrast crops of a horizontal band (the recipient row).
 
@@ -174,8 +189,10 @@ def has_tokens(line_text, *needles):
 # ----- numeric extraction from the English pass -----
 
 ACCOUNT_GROUP_RE = re.compile(r"\d{3,4}(?:\s+\d{3,4}){3}")
+# The time may be glued to the year with no space ("24-Jun-202620:11:57"), so
+# capture date and time separately and rejoin them.
 DATE_RE = re.compile(
-    r"(\d{1,2}[-/][A-Za-z]{3,}[-/]\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)"
+    r"(\d{1,2}[-/][A-Za-z]{3,}[-/]\d{4})\s*(\d{1,2}:\d{2}(?::\d{2})?)?"
 )
 AMOUNT_RE = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d{2}\b")
 
@@ -202,7 +219,9 @@ def extract_date(eng_lines):
     for line in eng_lines:
         m = DATE_RE.search(line["text"])
         if m:
-            return re.sub(r"\s+", " ", m.group(1)).strip()
+            date = re.sub(r"\s+", " ", m.group(1)).strip()
+            time_part = m.group(2)
+            return "%s %s" % (date, time_part) if time_part else date
     return None
 
 
@@ -382,12 +401,40 @@ def extract(image_path):
     eng_lines = ocr_lines(gray, "eng")
 
     accounts = extract_accounts(eng_lines)
-    from_account = accounts[0] if len(accounts) >= 1 else None
-    to_account = accounts[1] if len(accounts) >= 2 else None
-
     operation_number = extract_operation(eng_lines, accounts)
     amount = extract_amount(eng_lines)
     transfer_date = extract_date(eng_lines)
+
+    # Colored digital screenshots (white text on a saturated gradient) defeat
+    # grayscale: the digit rows wash out. Recover the numeric fields from the
+    # brightness (V) channel, which keeps white text crisp. Only pay for the
+    # extra passes when the page looks colored or the gray pass came up short.
+    colored = orig is not None and mean_saturation(orig) > 90
+    if orig is not None and (
+        colored or len(accounts) < 2 or not amount or transfer_date is None
+    ):
+        val = value_channel(orig)
+        # psm 3 (page layout) reads the account groups and the amount cleanly.
+        val_lines = ocr_lines(_upscale(val), "eng", psm=3)
+        val_accounts = extract_accounts(val_lines)
+        if len(val_accounts) > len(accounts):
+            accounts = val_accounts
+        if not amount:
+            amount = extract_amount(val_lines) or amount
+        if not operation_number:
+            operation_number = extract_operation(val_lines, accounts)
+        if transfer_date is None:
+            transfer_date = extract_date(val_lines)
+        # The date row (month name + glued time) only survives sparse-text mode;
+        # run psm 11 on a crop of the data card to keep it fast.
+        if transfer_date is None:
+            h = val.shape[0]
+            band = val[int(h * 0.25):int(h * 0.75), :]
+            date_lines = ocr_lines(_upscale(band), "eng", psm=11)
+            transfer_date = extract_date(date_lines)
+
+    from_account = accounts[0] if len(accounts) >= 1 else None
+    to_account = accounts[1] if len(accounts) >= 2 else None
 
     recipient = best_recipient(image_path, ar_lines, scale)
     comment = arabic_value(ar_lines, "التعليق")
