@@ -6,6 +6,7 @@ import {
   useApproveTransfer,
   useRejectTransfer,
   useCreateAgent,
+  useUpdateAgent,
   useChangeTransferAgent,
   useDeleteTransfer,
   useGetAgentsSummary,
@@ -36,7 +37,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft, Trash2, Users } from "lucide-react";
+import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft, Trash2, Users, Pencil } from "lucide-react";
 
 // The date used for range filtering must match the date shown in the table:
 // prefer the (OCR-parsed) transferDate when it's a valid date, otherwise fall
@@ -72,6 +73,9 @@ export default function Statement() {
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [changeAgentFor, setChangeAgentFor] = useState<number | null>(null);
   const [changeAgentTarget, setChangeAgentTarget] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<Transfer | null>(null);
@@ -171,6 +175,31 @@ export default function Statement() {
     }
   });
 
+  const updateAgentMutation = useUpdateAgent({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAgentsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAgentsSummaryQueryKey() });
+        if (selectedAgentId) {
+          queryClient.invalidateQueries({ queryKey: getGetAgentStatementQueryKey(selectedAgentId) });
+        }
+        toast({ title: "تم التعديل", description: "تم تعديل بيانات المندوب بنجاح" });
+        setEditOpen(false);
+      },
+      onError: (err: any) => {
+        toast({ title: "خطأ", description: err?.message || "تعذّر تعديل بيانات المندوب", variant: "destructive" });
+      }
+    }
+  });
+
+  const openEditAgent = () => {
+    const current = agents?.find(a => a.id === selectedAgentId);
+    if (!current) return;
+    setEditName(current.name);
+    setEditPhone(current.phone);
+    setEditOpen(true);
+  };
+
   const changeAgentMutation = useChangeTransferAgent({
     mutation: {
       onSuccess: () => {
@@ -262,11 +291,44 @@ export default function Statement() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              {selectedAgentId && (
+                <Button variant="outline" onClick={openEditAgent} className="flex-1 md:flex-none">
+                  <Pencil className="w-4 h-4 ml-2" /> تعديل المندوب
+                </Button>
+              )}
               {selectedAgentId && statement && (
                 <Button variant="outline" onClick={() => window.print()} className="flex-1 md:flex-none">
                   <Printer className="w-4 h-4 ml-2" /> طباعة
                 </Button>
               )}
+              <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogContent dir="rtl">
+                  <DialogHeader>
+                    <DialogTitle>تعديل بيانات المندوب</DialogTitle>
+                    <DialogDescription>عدّل اسم المندوب أو رقم هاتفه.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">اسم المندوب</label>
+                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="الاسم الكامل" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">رقم الهاتف</label>
+                      <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="09xxxxxxxx" dir="ltr" className="text-right" />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditOpen(false)}>إلغاء</Button>
+                    <Button
+                      className="bg-[#0F6E56] hover:bg-[#0b5341]"
+                      onClick={() => selectedAgentId && updateAgentMutation.mutate({ id: selectedAgentId, data: { name: editName.trim(), phone: editPhone.trim() } })}
+                      disabled={updateAgentMutation.isPending || !editName.trim() || !editPhone.trim()}
+                    >
+                      حفظ التعديل
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
 

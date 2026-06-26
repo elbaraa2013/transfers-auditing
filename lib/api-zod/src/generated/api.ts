@@ -313,6 +313,33 @@ export const GetAgentResponse = zod.object({
 
 
 /**
+ * @summary تعديل بيانات مندوب
+ */
+export const UpdateAgentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+
+export const UpdateAgentBody = zod.object({
+  "name": zod.string().min(1),
+  "phone": zod.string().min(1)
+})
+
+export const UpdateAgentResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string(),
+  "balance": zod.number(),
+  "lastActivityAt": zod.string(),
+  "totalTransfers": zod.number(),
+  "pendingTransfers": zod.number()
+})
+
+
+/**
  * @summary كشف حساب مندوب
  */
 export const GetAgentStatementParams = zod.object({

@@ -1184,6 +1184,78 @@ export function useGetAgent<TData = Awaited<ReturnType<typeof getAgent>>, TError
 
 
 
+export const getUpdateAgentUrl = (id: number,) => {
+
+
+
+
+  return `/api/agents/${id}`
+}
+
+/**
+ * @summary تعديل بيانات مندوب
+ */
+export const updateAgent = async (id: number,
+    agentInput: AgentInput, options?: RequestInit): Promise<Agent> => {
+
+  return customFetch<Agent>(getUpdateAgentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      agentInput,)
+  }
+);}
+
+
+
+
+export const getUpdateAgentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAgent>>, TError,{id: number;data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAgent>>, TError,{id: number;data: BodyType<AgentInput>}, TContext> => {
+
+const mutationKey = ['updateAgent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAgent>>, {id: number;data: BodyType<AgentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAgent(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAgentMutationResult = NonNullable<Awaited<ReturnType<typeof updateAgent>>>
+    export type UpdateAgentMutationBody = BodyType<AgentInput>
+    export type UpdateAgentMutationError = ErrorType<void>
+
+    /**
+ * @summary تعديل بيانات مندوب
+ */
+export const useUpdateAgent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAgent>>, TError,{id: number;data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAgent>>,
+        TError,
+        {id: number;data: BodyType<AgentInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAgentMutationOptions(options));
+    }
+
 export const getGetAgentStatementUrl = (id: number,) => {
 
 

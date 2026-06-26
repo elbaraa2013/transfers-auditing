@@ -89,7 +89,7 @@ export default function Whatsapp() {
                   <div className="flex justify-between items-baseline mb-1">
                     <h4 className="font-semibold text-gray-900 truncate">{conv.agentName}</h4>
                     <span className="text-xs text-gray-500 whitespace-nowrap mr-2">
-                      {new Date(conv.lastMessageAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(conv.lastMessageAt).toLocaleTimeString('ar-SA-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -161,7 +161,7 @@ export default function Whatsapp() {
                       ) : null}
                       <p className="text-gray-800 text-sm whitespace-pre-wrap">{msg.content}</p>
                       <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-gray-500">
-                        <span>{new Date(msg.sentAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{new Date(msg.sentAt).toLocaleTimeString('ar-SA-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}</span>
                         {isOutgoing && <CheckCheck className="w-3 h-3 text-blue-500" />}
                       </div>
                     </div>

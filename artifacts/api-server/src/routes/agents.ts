@@ -214,6 +214,49 @@ router.get("/agents/:id", async (req, res) => {
   res.json(buildAgentResponse(agents[0], transfers));
 });
 
+// PATCH /api/agents/:id
+router.patch("/agents/:id", async (req, res) => {
+  const ownerId = req.userId!;
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "معرف المندوب غير صحيح" });
+    return;
+  }
+
+  const parsed = insertAgentSchema
+    .pick({ name: true, phone: true })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "بيانات المندوب غير صحيحة" });
+    return;
+  }
+
+  const name = parsed.data.name.trim();
+  const phone = parsed.data.phone.trim();
+  if (!name || !phone) {
+    res.status(400).json({ error: "الاسم ورقم الهاتف مطلوبان" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(agentsTable)
+    .set({ name, phone })
+    .where(and(eq(agentsTable.id, id), eq(agentsTable.ownerId, ownerId)))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "المندوب غير موجود" });
+    return;
+  }
+
+  const transfers = await db
+    .select()
+    .from(transfersTable)
+    .where(and(eq(transfersTable.agentId, id), eq(transfersTable.ownerId, ownerId)));
+
+  res.json(buildAgentResponse(updated, transfers));
+});
+
 // GET /api/agents/:id/statement
 router.get("/agents/:id/statement", async (req, res) => {
   const ownerId = req.userId!;

@@ -6,12 +6,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number): string {
-  return amount.toLocaleString('ar-SA') + ' ج.س';
+  return amount.toLocaleString('en-US') + ' ج.س';
 }
 
 export function formatDate(dateString: string): string {
   try {
-    return new Date(dateString).toLocaleDateString('ar-SA');
+    return new Date(dateString).toLocaleDateString('ar-SA-u-nu-latn');
   } catch (e) {
     return dateString;
   }
@@ -19,7 +19,7 @@ export function formatDate(dateString: string): string {
 
 export function formatDateTime(dateString: string): string {
   try {
-    return new Date(dateString).toLocaleString('ar-SA', {
+    return new Date(dateString).toLocaleString('ar-SA-u-nu-latn', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

@@ -10,7 +10,7 @@ export default function Overview() {
   const { data: transfers, isLoading: transfersLoading } = useListTransfers();
 
   const formatMoney = (amount: number) => {
-    return amount.toLocaleString('ar-SA') + ' ج.س';
+    return amount.toLocaleString('en-US') + ' ج.س';
   };
 
   const getStatusBadge = (status: string) => {
@@ -128,7 +128,7 @@ export default function Overview() {
                   transfers?.map((transfer) => (
                     <TableRow key={transfer.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium font-mono text-sm">{transfer.operationNumber}</TableCell>
-                      <TableCell>{new Date(transfer.createdAt).toLocaleDateString('ar-SA')}</TableCell>
+                      <TableCell>{new Date(transfer.createdAt).toLocaleDateString('ar-SA-u-nu-latn')}</TableCell>
                       <TableCell>{transfer.agentName}</TableCell>
                       <TableCell>{transfer.recipientName || "—"}</TableCell>
                       <TableCell className="font-bold">{formatMoney(transfer.amount)}</TableCell>

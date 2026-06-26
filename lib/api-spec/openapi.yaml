@@ -317,6 +317,33 @@ paths:
                 $ref: "#/components/schemas/Agent"
         "404":
           description: غير موجود
+    patch:
+      operationId: updateAgent
+      tags: [agents]
+      summary: تعديل بيانات مندوب
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+      responses:
+        "200":
+          description: تم التعديل
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "400":
+          description: بيانات غير صحيحة
+        "404":
+          description: غير موجود
 
   /agents/{id}/statement:
     get:
