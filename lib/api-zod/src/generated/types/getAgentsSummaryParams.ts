@@ -6,9 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetDailyRecipientSummaryParams = {
+export type GetAgentsSummaryParams = {
 /**
  * @nullable
  */
-date?: string | null;
+from?: string | null;
+/**
+ * @nullable
+ */
+to?: string | null;
 };

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { transfersTable, agentsTable } from "@workspace/db";
-import { eq, desc, and, gte, lte, type SQL } from "drizzle-orm";
+import { eq, desc, and, type SQL } from "drizzle-orm";
 
 const router = Router();
 
@@ -142,67 +142,6 @@ router.get("/transfers/pending", async (req, res) => {
 
   const transfers = await Promise.all(rows.map((r) => buildTransferResponse(r.transfer, r.agentName)));
   res.json(transfers);
-});
-
-// GET /api/transfers/daily-recipients
-// Summary of a single day's transfers grouped by the recipient account
-// (الحساب المرسل إليه). Defaults to today; the client passes its local date
-// (YYYY-MM-DD) so the day shown matches the user's calendar.
-router.get("/transfers/daily-recipients", async (req, res) => {
-  const ownerId = req.userId!;
-  const dateParam = (req.query.date as string) || "";
-  const base = dateParam ? new Date(dateParam) : new Date();
-  if (isNaN(base.getTime())) {
-    res.status(400).json({ error: "تاريخ غير صحيح" });
-    return;
-  }
-  const y = base.getUTCFullYear();
-  const m = base.getUTCMonth();
-  const d = base.getUTCDate();
-  const start = new Date(Date.UTC(y, m, d, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
-
-  const rows = await db
-    .select()
-    .from(transfersTable)
-    .where(
-      and(
-        eq(transfersTable.ownerId, ownerId),
-        gte(transfersTable.createdAt, start),
-        lte(transfersTable.createdAt, end),
-      ),
-    );
-
-  const groups = new Map<
-    string,
-    {
-      account: string | null;
-      count: number;
-      totalAmount: number;
-      approvedAmount: number;
-      pendingAmount: number;
-    }
-  >();
-
-  for (const t of rows) {
-    const account = t.toAccount ?? null;
-    const key = account ?? "__none__";
-    const amount = Number(t.amount);
-    let g = groups.get(key);
-    if (!g) {
-      g = { account, count: 0, totalAmount: 0, approvedAmount: 0, pendingAmount: 0 };
-      groups.set(key, g);
-    }
-    g.count += 1;
-    g.totalAmount += amount;
-    if (t.status === "approved") g.approvedAmount += amount;
-    if (t.status === "pending") g.pendingAmount += amount;
-  }
-
-  const result = Array.from(groups.values()).sort(
-    (a, b) => b.totalAmount - a.totalAmount,
-  );
-  res.json(result);
 });
 
 // GET /api/transfers/:id

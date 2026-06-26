@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { agentsTable, transfersTable, insertAgentSchema } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 
 const router = Router();
 
@@ -110,16 +110,39 @@ router.get("/agents/inactive", async (req, res) => {
 // totals across all agents (ملخص حوالات كل المناديب مع الإجماليات).
 router.get("/agents/summary", async (req, res) => {
   const ownerId = req.userId!;
+  const fromParam = (req.query.from as string) || "";
+  const toParam = (req.query.to as string) || "";
+
   const agents = await db
     .select()
     .from(agentsTable)
     .where(eq(agentsTable.ownerId, ownerId))
     .orderBy(agentsTable.name);
 
+  const conditions = [eq(transfersTable.ownerId, ownerId)];
+  if (fromParam) {
+    const f = new Date(fromParam);
+    if (!isNaN(f.getTime())) {
+      const start = new Date(
+        Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate(), 0, 0, 0, 0),
+      );
+      conditions.push(gte(transfersTable.createdAt, start));
+    }
+  }
+  if (toParam) {
+    const t = new Date(toParam);
+    if (!isNaN(t.getTime())) {
+      const end = new Date(
+        Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), 23, 59, 59, 999),
+      );
+      conditions.push(lte(transfersTable.createdAt, end));
+    }
+  }
+
   const transfers = await db
     .select()
     .from(transfersTable)
-    .where(eq(transfersTable.ownerId, ownerId));
+    .where(and(...conditions));
 
   const rows = agents.map((a) => {
     const ts = transfers.filter((t) => t.agentId === a.id);

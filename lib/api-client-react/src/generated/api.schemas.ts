@@ -125,15 +125,6 @@ export interface AgentStatement {
   transfers: Transfer[];
 }
 
-export interface RecipientDailySummary {
-  /** @nullable */
-  account: string | null;
-  count: number;
-  totalAmount: number;
-  approvedAmount: number;
-  pendingAmount: number;
-}
-
 export interface SummaryTotals {
   totalCount: number;
   totalAmount: number;
@@ -242,10 +233,14 @@ export const ListTransfersStatus = {
   rejected: 'rejected',
 } as const;
 
-export type GetDailyRecipientSummaryParams = {
+export type GetAgentsSummaryParams = {
 /**
  * @nullable
  */
-date?: string | null;
+from?: string | null;
+/**
+ * @nullable
+ */
+to?: string | null;
 };
 

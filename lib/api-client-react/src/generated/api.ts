@@ -26,12 +26,11 @@ import type {
   AgentsSummary,
   ChangeAgentInput,
   Conversation,
-  GetDailyRecipientSummaryParams,
+  GetAgentsSummaryParams,
   HealthStatus,
   InactiveAgent,
   ListTransfersParams,
   Message,
-  RecipientDailySummary,
   RejectInput,
   ScanInput,
   ScanResult,
@@ -426,90 +425,6 @@ export function useListPendingTransfers<TData = Awaited<ReturnType<typeof listPe
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListPendingTransfersQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-
-
-
-
-export const getGetDailyRecipientSummaryUrl = (params?: GetDailyRecipientSummaryParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/transfers/daily-recipients?${stringifiedParams}` : `/api/transfers/daily-recipients`
-}
-
-/**
- * @summary ملخص تحاويل اليوم حسب الحساب المرسل إليه
- */
-export const getDailyRecipientSummary = async (params?: GetDailyRecipientSummaryParams, options?: RequestInit): Promise<RecipientDailySummary[]> => {
-
-  return customFetch<RecipientDailySummary[]>(getGetDailyRecipientSummaryUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetDailyRecipientSummaryQueryKey = (params?: GetDailyRecipientSummaryParams,) => {
-    return [
-    `/api/transfers/daily-recipients`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getGetDailyRecipientSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError = ErrorType<unknown>>(params?: GetDailyRecipientSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetDailyRecipientSummaryQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyRecipientSummary>>> = ({ signal }) => getDailyRecipientSummary(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetDailyRecipientSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyRecipientSummary>>>
-export type GetDailyRecipientSummaryQueryError = ErrorType<unknown>
-
-
-/**
- * @summary ملخص تحاويل اليوم حسب الحساب المرسل إليه
- */
-
-export function useGetDailyRecipientSummary<TData = Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError = ErrorType<unknown>>(
- params?: GetDailyRecipientSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetDailyRecipientSummaryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1108,20 +1023,27 @@ export function useListInactiveAgents<TData = Awaited<ReturnType<typeof listInac
 
 
 
-export const getGetAgentsSummaryUrl = () => {
+export const getGetAgentsSummaryUrl = (params?: GetAgentsSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/agents/summary`
+  return stringifiedParams.length > 0 ? `/api/agents/summary?${stringifiedParams}` : `/api/agents/summary`
 }
 
 /**
  * @summary ملخص حوالات كل المناديب مع الإجماليات
  */
-export const getAgentsSummary = async ( options?: RequestInit): Promise<AgentsSummary> => {
+export const getAgentsSummary = async (params?: GetAgentsSummaryParams, options?: RequestInit): Promise<AgentsSummary> => {
 
-  return customFetch<AgentsSummary>(getGetAgentsSummaryUrl(),
+  return customFetch<AgentsSummary>(getGetAgentsSummaryUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1134,23 +1056,23 @@ export const getAgentsSummary = async ( options?: RequestInit): Promise<AgentsSu
 
 
 
-export const getGetAgentsSummaryQueryKey = () => {
+export const getGetAgentsSummaryQueryKey = (params?: GetAgentsSummaryParams,) => {
     return [
-    `/api/agents/summary`
+    `/api/agents/summary`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetAgentsSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAgentsSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAgentsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetAgentsSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAgentsSummary>>, TError = ErrorType<unknown>>(params?: GetAgentsSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAgentsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetAgentsSummaryQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetAgentsSummaryQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentsSummary>>> = ({ signal }) => getAgentsSummary({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentsSummary>>> = ({ signal }) => getAgentsSummary(params, { signal, ...requestOptions });
 
 
 
@@ -1168,11 +1090,11 @@ export type GetAgentsSummaryQueryError = ErrorType<unknown>
  */
 
 export function useGetAgentsSummary<TData = Awaited<ReturnType<typeof getAgentsSummary>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAgentsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetAgentsSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAgentsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetAgentsSummaryQueryOptions(options)
+  const queryOptions = getGetAgentsSummaryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

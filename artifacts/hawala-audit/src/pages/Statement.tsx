@@ -9,10 +9,8 @@ import {
   useChangeTransferAgent,
   useDeleteTransfer,
   useGetAgentsSummary,
-  useGetDailyRecipientSummary,
   getGetAgentStatementQueryKey,
   getGetAgentsSummaryQueryKey,
-  getGetDailyRecipientSummaryQueryKey,
   getListAgentsQueryKey,
   TransferStatus,
   type Transfer
@@ -38,11 +36,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft, Trash2, Users, CalendarDays } from "lucide-react";
-
-function todayLocal(): string {
-  return new Date().toLocaleDateString("en-CA");
-}
+import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft, Trash2, Users } from "lucide-react";
 
 // The date used for range filtering must match the date shown in the table:
 // prefer the (OCR-parsed) transferDate when it's a valid date, otherwise fall
@@ -83,7 +77,8 @@ export default function Statement() {
   const [deleteTarget, setDeleteTarget] = useState<Transfer | null>(null);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [dailyDate, setDailyDate] = useState(todayLocal());
+  const [agentsFrom, setAgentsFrom] = useState("");
+  const [agentsTo, setAgentsTo] = useState("");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -96,11 +91,12 @@ export default function Statement() {
     }
   });
 
-  const { data: agentsSummary, isLoading: summaryLoading } = useGetAgentsSummary();
-  const { data: dailyRecipients, isLoading: dailyLoading } = useGetDailyRecipientSummary(
-    { date: dailyDate },
-    { query: { queryKey: getGetDailyRecipientSummaryQueryKey({ date: dailyDate }) } }
+  const agentsParams = { from: agentsFrom || undefined, to: agentsTo || undefined };
+  const { data: agentsSummary, isLoading: summaryLoading } = useGetAgentsSummary(
+    agentsParams,
+    { query: { queryKey: getGetAgentsSummaryQueryKey(agentsParams) } }
   );
+  const agentsFiltered = !!(agentsFrom || agentsTo);
 
   const filteredTransfers = useMemo(() => {
     if (!statement) return [];
@@ -120,7 +116,6 @@ export default function Statement() {
       queryClient.invalidateQueries({ queryKey: getGetAgentStatementQueryKey(selectedAgentId) });
     }
     queryClient.invalidateQueries({ queryKey: getGetAgentsSummaryQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetDailyRecipientSummaryQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListAgentsQueryKey() });
   };
 
@@ -208,15 +203,12 @@ export default function Statement() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="statement" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 no-print">
+        <TabsList className="grid w-full grid-cols-2 no-print">
           <TabsTrigger value="statement">
             <BookOpen className="w-4 h-4 ml-2" /> كشف حساب مندوب
           </TabsTrigger>
           <TabsTrigger value="agents">
             <Users className="w-4 h-4 ml-2" /> ملخص المناديب
-          </TabsTrigger>
-          <TabsTrigger value="daily">
-            <CalendarDays className="w-4 h-4 ml-2" /> ملخص اليوم
           </TabsTrigger>
         </TabsList>
 
@@ -475,11 +467,31 @@ export default function Statement() {
         </TabsContent>
 
         {/* ===== All agents summary ===== */}
-        <TabsContent value="agents" className="space-y-6">
+        <TabsContent value="agents" className="space-y-6 print-area">
+          <div className="flex flex-col md:flex-row md:items-end gap-4 bg-white p-4 rounded-lg border shadow-sm no-print">
+            <div className="space-y-1 w-full md:w-auto">
+              <label className="text-sm font-medium text-gray-700">من تاريخ</label>
+              <Input type="date" value={agentsFrom} max={agentsTo || undefined} onChange={(e) => setAgentsFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1 w-full md:w-auto">
+              <label className="text-sm font-medium text-gray-700">إلى تاريخ</label>
+              <Input type="date" value={agentsTo} min={agentsFrom || undefined} onChange={(e) => setAgentsTo(e.target.value)} />
+            </div>
+            {agentsFiltered && (
+              <Button variant="outline" onClick={() => { setAgentsFrom(""); setAgentsTo(""); }}>مسح الفترة</Button>
+            )}
+            <Button variant="outline" className="md:mr-auto" onClick={() => window.print()}>
+              <Printer className="w-4 h-4 ml-2" /> طباعة
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>ملخص حوالات كل المناديب</CardTitle>
-              <CardDescription>إجمالي الحوالات والمبالغ لكل مندوب مع الإجمالي العام.</CardDescription>
+              <CardDescription>
+                {agentsFiltered
+                  ? "إجمالي الحوالات والمبالغ لكل مندوب ضمن الفترة المحددة."
+                  : "إجمالي الحوالات والمبالغ لكل مندوب مع الإجمالي العام."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {summaryLoading ? (
@@ -524,68 +536,6 @@ export default function Statement() {
                           <TableCell className="text-green-700">{formatCurrency(agentsSummary.totals.approvedAmount)}</TableCell>
                           <TableCell className="text-amber-700">{formatCurrency(agentsSummary.totals.pendingAmount)}</TableCell>
                           <TableCell className="text-red-700">{formatCurrency(agentsSummary.totals.rejectedAmount)}</TableCell>
-                        </TableRow>
-                      </tfoot>
-                    )}
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ===== Daily recipient summary ===== */}
-        <TabsContent value="daily" className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <CardTitle>ملخص تحاويل اليوم للحسابات المرسل إليها</CardTitle>
-                <CardDescription>إجمالي الحوالات لكل حساب مرسل إليه في اليوم المحدد.</CardDescription>
-              </div>
-              <div className="w-full md:w-56">
-                <Input type="date" value={dailyDate} max={todayLocal()} onChange={(e) => setDailyDate(e.target.value)} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {dailyLoading ? (
-                <Skeleton className="h-[300px] w-full" />
-              ) : (
-                <div className="rounded-md border border-gray-200">
-                  <Table>
-                    <TableHeader className="bg-gray-50">
-                      <TableRow>
-                        <TableHead className="text-right">الحساب المرسل إليه</TableHead>
-                        <TableHead className="text-center">عدد الحوالات</TableHead>
-                        <TableHead className="text-right">إجمالي المبلغ</TableHead>
-                        <TableHead className="text-right">المعتمد</TableHead>
-                        <TableHead className="text-right">المعلق</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {!dailyRecipients || dailyRecipients.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-10 text-gray-500">لا توجد حوالات مسجلة في هذا اليوم.</TableCell>
-                        </TableRow>
-                      ) : (
-                        dailyRecipients.map((row, idx) => (
-                          <TableRow key={idx} className="hover:bg-gray-50">
-                            <TableCell className="font-medium">{row.account || "غير محدد"}</TableCell>
-                            <TableCell className="text-center">{row.count}</TableCell>
-                            <TableCell className="font-bold text-gray-900">{formatCurrency(row.totalAmount)}</TableCell>
-                            <TableCell className="text-green-700">{formatCurrency(row.approvedAmount)}</TableCell>
-                            <TableCell className="text-amber-700">{formatCurrency(row.pendingAmount)}</TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                    {dailyRecipients && dailyRecipients.length > 0 && (
-                      <tfoot>
-                        <TableRow className="bg-[#0F6E56]/5 font-bold border-t-2 border-[#0F6E56]/20">
-                          <TableCell className="font-bold">الإجمالي</TableCell>
-                          <TableCell className="text-center">{dailyRecipients.reduce((s, r) => s + r.count, 0)}</TableCell>
-                          <TableCell className="font-bold text-[#0F6E56]">{formatCurrency(dailyRecipients.reduce((s, r) => s + r.totalAmount, 0))}</TableCell>
-                          <TableCell className="text-green-700">{formatCurrency(dailyRecipients.reduce((s, r) => s + r.approvedAmount, 0))}</TableCell>
-                          <TableCell className="text-amber-700">{formatCurrency(dailyRecipients.reduce((s, r) => s + r.pendingAmount, 0))}</TableCell>
                         </TableRow>
                       </tfoot>
                     )}

@@ -105,27 +105,6 @@ paths:
                 items:
                   $ref: "#/components/schemas/Transfer"
 
-  /transfers/daily-recipients:
-    get:
-      operationId: getDailyRecipientSummary
-      tags: [transfers]
-      summary: ملخص تحاويل اليوم حسب الحساب المرسل إليه
-      parameters:
-        - name: date
-          in: query
-          required: false
-          schema:
-            type: ["string", "null"]
-      responses:
-        "200":
-          description: ملخص اليوم حسب الحساب
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RecipientDailySummary"
-
   /transfers/{id}:
     get:
       operationId: getTransfer
@@ -299,6 +278,17 @@ paths:
       operationId: getAgentsSummary
       tags: [agents]
       summary: ملخص حوالات كل المناديب مع الإجماليات
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: ["string", "null"]
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: ["string", "null"]
       responses:
         "200":
           description: ملخص المناديب
@@ -637,26 +627,6 @@ components:
         pendingAmount:
           type: number
         rejectedAmount:
-          type: number
-
-    RecipientDailySummary:
-      type: object
-      required:
-        - account
-        - count
-        - totalAmount
-        - approvedAmount
-        - pendingAmount
-      properties:
-        account:
-          type: ["string", "null"]
-        count:
-          type: integer
-        totalAmount:
-          type: number
-        approvedAmount:
-          type: number
-        pendingAmount:
           type: number
 
     SummaryTotals:

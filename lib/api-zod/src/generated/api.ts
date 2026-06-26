@@ -100,23 +100,6 @@ export const ListPendingTransfersResponse = zod.array(ListPendingTransfersRespon
 
 
 /**
- * @summary ملخص تحاويل اليوم حسب الحساب المرسل إليه
- */
-export const GetDailyRecipientSummaryQueryParams = zod.object({
-  "date": zod.coerce.string().nullish()
-})
-
-export const GetDailyRecipientSummaryResponseItem = zod.object({
-  "account": zod.string().nullable(),
-  "count": zod.number(),
-  "totalAmount": zod.number(),
-  "approvedAmount": zod.number(),
-  "pendingAmount": zod.number()
-})
-export const GetDailyRecipientSummaryResponse = zod.array(GetDailyRecipientSummaryResponseItem)
-
-
-/**
  * @summary تفاصيل حوالة
  */
 export const GetTransferParams = zod.object({
@@ -280,6 +263,11 @@ export const ListInactiveAgentsResponse = zod.array(ListInactiveAgentsResponseIt
 /**
  * @summary ملخص حوالات كل المناديب مع الإجماليات
  */
+export const GetAgentsSummaryQueryParams = zod.object({
+  "from": zod.coerce.string().nullish(),
+  "to": zod.coerce.string().nullish()
+})
+
 export const GetAgentsSummaryResponse = zod.object({
   "agents": zod.array(zod.object({
   "agentId": zod.number(),
