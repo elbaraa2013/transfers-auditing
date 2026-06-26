@@ -105,6 +105,69 @@ router.get("/agents/inactive", async (req, res) => {
   res.json(inactive);
 });
 
+// GET /api/agents/summary
+// One row per agent with their transfer counts/amounts by status, plus grand
+// totals across all agents (ملخص حوالات كل المناديب مع الإجماليات).
+router.get("/agents/summary", async (req, res) => {
+  const ownerId = req.userId!;
+  const agents = await db
+    .select()
+    .from(agentsTable)
+    .where(eq(agentsTable.ownerId, ownerId))
+    .orderBy(agentsTable.name);
+
+  const transfers = await db
+    .select()
+    .from(transfersTable)
+    .where(eq(transfersTable.ownerId, ownerId));
+
+  const rows = agents.map((a) => {
+    const ts = transfers.filter((t) => t.agentId === a.id);
+    const approved = ts.filter((t) => t.status === "approved");
+    const pending = ts.filter((t) => t.status === "pending");
+    const rejected = ts.filter((t) => t.status === "rejected");
+    const sum = (list: typeof ts) =>
+      list.reduce((s, t) => s + Number(t.amount), 0);
+    return {
+      agentId: a.id,
+      agentName: a.name,
+      totalCount: ts.length,
+      totalAmount: sum(ts),
+      approvedCount: approved.length,
+      approvedAmount: sum(approved),
+      pendingCount: pending.length,
+      pendingAmount: sum(pending),
+      rejectedCount: rejected.length,
+      rejectedAmount: sum(rejected),
+    };
+  });
+
+  const totals = rows.reduce(
+    (acc, r) => ({
+      totalCount: acc.totalCount + r.totalCount,
+      totalAmount: acc.totalAmount + r.totalAmount,
+      approvedCount: acc.approvedCount + r.approvedCount,
+      approvedAmount: acc.approvedAmount + r.approvedAmount,
+      pendingCount: acc.pendingCount + r.pendingCount,
+      pendingAmount: acc.pendingAmount + r.pendingAmount,
+      rejectedCount: acc.rejectedCount + r.rejectedCount,
+      rejectedAmount: acc.rejectedAmount + r.rejectedAmount,
+    }),
+    {
+      totalCount: 0,
+      totalAmount: 0,
+      approvedCount: 0,
+      approvedAmount: 0,
+      pendingCount: 0,
+      pendingAmount: 0,
+      rejectedCount: 0,
+      rejectedAmount: 0,
+    },
+  );
+
+  res.json({ agents: rows, totals });
+});
+
 // GET /api/agents/:id
 router.get("/agents/:id", async (req, res) => {
   const ownerId = req.userId!;

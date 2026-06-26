@@ -105,6 +105,27 @@ paths:
                 items:
                   $ref: "#/components/schemas/Transfer"
 
+  /transfers/daily-recipients:
+    get:
+      operationId: getDailyRecipientSummary
+      tags: [transfers]
+      summary: ملخص تحاويل اليوم حسب الحساب المرسل إليه
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: ملخص اليوم حسب الحساب
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecipientDailySummary"
+
   /transfers/{id}:
     get:
       operationId: getTransfer
@@ -125,6 +146,23 @@ paths:
                 $ref: "#/components/schemas/Transfer"
         "404":
           description: غير موجود
+    delete:
+      operationId: deleteTransfer
+      tags: [transfers]
+      summary: حذف حوالة
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: تم الحذف
+        "404":
+          description: غير موجود
+        "409":
+          description: لا يمكن حذف حوالة معتمدة
 
   /transfers/{id}/approve:
     patch:
@@ -255,6 +293,19 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/InactiveAgent"
+
+  /agents/summary:
+    get:
+      operationId: getAgentsSummary
+      tags: [agents]
+      summary: ملخص حوالات كل المناديب مع الإجماليات
+      responses:
+        "200":
+          description: ملخص المناديب
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentsSummary"
 
   /agents/{id}:
     get:
@@ -587,6 +638,103 @@ components:
           type: number
         rejectedAmount:
           type: number
+
+    RecipientDailySummary:
+      type: object
+      required:
+        - account
+        - count
+        - totalAmount
+        - approvedAmount
+        - pendingAmount
+      properties:
+        account:
+          type: ["string", "null"]
+        count:
+          type: integer
+        totalAmount:
+          type: number
+        approvedAmount:
+          type: number
+        pendingAmount:
+          type: number
+
+    SummaryTotals:
+      type: object
+      required:
+        - totalCount
+        - totalAmount
+        - approvedCount
+        - approvedAmount
+        - pendingCount
+        - pendingAmount
+        - rejectedCount
+        - rejectedAmount
+      properties:
+        totalCount:
+          type: integer
+        totalAmount:
+          type: number
+        approvedCount:
+          type: integer
+        approvedAmount:
+          type: number
+        pendingCount:
+          type: integer
+        pendingAmount:
+          type: number
+        rejectedCount:
+          type: integer
+        rejectedAmount:
+          type: number
+
+    AgentSummaryRow:
+      type: object
+      required:
+        - agentId
+        - agentName
+        - totalCount
+        - totalAmount
+        - approvedCount
+        - approvedAmount
+        - pendingCount
+        - pendingAmount
+        - rejectedCount
+        - rejectedAmount
+      properties:
+        agentId:
+          type: integer
+        agentName:
+          type: string
+        totalCount:
+          type: integer
+        totalAmount:
+          type: number
+        approvedCount:
+          type: integer
+        approvedAmount:
+          type: number
+        pendingCount:
+          type: integer
+        pendingAmount:
+          type: number
+        rejectedCount:
+          type: integer
+        rejectedAmount:
+          type: number
+
+    AgentsSummary:
+      type: object
+      required:
+        - agents
+        - totals
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentSummaryRow"
+        totals:
+          $ref: "#/components/schemas/SummaryTotals"
 
     ScanInput:
       type: object

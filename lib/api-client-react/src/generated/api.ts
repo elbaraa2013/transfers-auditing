@@ -23,12 +23,15 @@ import type {
   Agent,
   AgentInput,
   AgentStatement,
+  AgentsSummary,
   ChangeAgentInput,
   Conversation,
+  GetDailyRecipientSummaryParams,
   HealthStatus,
   InactiveAgent,
   ListTransfersParams,
   Message,
+  RecipientDailySummary,
   RejectInput,
   ScanInput,
   ScanResult,
@@ -435,6 +438,90 @@ export function useListPendingTransfers<TData = Awaited<ReturnType<typeof listPe
 
 
 
+export const getGetDailyRecipientSummaryUrl = (params?: GetDailyRecipientSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/transfers/daily-recipients?${stringifiedParams}` : `/api/transfers/daily-recipients`
+}
+
+/**
+ * @summary ملخص تحاويل اليوم حسب الحساب المرسل إليه
+ */
+export const getDailyRecipientSummary = async (params?: GetDailyRecipientSummaryParams, options?: RequestInit): Promise<RecipientDailySummary[]> => {
+
+  return customFetch<RecipientDailySummary[]>(getGetDailyRecipientSummaryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDailyRecipientSummaryQueryKey = (params?: GetDailyRecipientSummaryParams,) => {
+    return [
+    `/api/transfers/daily-recipients`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDailyRecipientSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError = ErrorType<unknown>>(params?: GetDailyRecipientSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyRecipientSummaryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyRecipientSummary>>> = ({ signal }) => getDailyRecipientSummary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDailyRecipientSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyRecipientSummary>>>
+export type GetDailyRecipientSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary ملخص تحاويل اليوم حسب الحساب المرسل إليه
+ */
+
+export function useGetDailyRecipientSummary<TData = Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError = ErrorType<unknown>>(
+ params?: GetDailyRecipientSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyRecipientSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDailyRecipientSummaryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getGetTransferUrl = (id: number,) => {
 
 
@@ -511,6 +598,76 @@ export function useGetTransfer<TData = Awaited<ReturnType<typeof getTransfer>>, 
 
 
 
+
+export const getDeleteTransferUrl = (id: number,) => {
+
+
+
+
+  return `/api/transfers/${id}`
+}
+
+/**
+ * @summary حذف حوالة
+ */
+export const deleteTransfer = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteTransferUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteTransferMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTransfer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTransfer>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteTransfer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTransfer>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteTransfer(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTransferMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTransfer>>>
+
+    export type DeleteTransferMutationError = ErrorType<void>
+
+    /**
+ * @summary حذف حوالة
+ */
+export const useDeleteTransfer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTransfer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTransfer>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteTransferMutationOptions(options));
+    }
 
 export const getApproveTransferUrl = (id: number,) => {
 
@@ -939,6 +1096,83 @@ export function useListInactiveAgents<TData = Awaited<ReturnType<typeof listInac
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListInactiveAgentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAgentsSummaryUrl = () => {
+
+
+
+
+  return `/api/agents/summary`
+}
+
+/**
+ * @summary ملخص حوالات كل المناديب مع الإجماليات
+ */
+export const getAgentsSummary = async ( options?: RequestInit): Promise<AgentsSummary> => {
+
+  return customFetch<AgentsSummary>(getGetAgentsSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAgentsSummaryQueryKey = () => {
+    return [
+    `/api/agents/summary`
+    ] as const;
+    }
+
+
+export const getGetAgentsSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAgentsSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAgentsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAgentsSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentsSummary>>> = ({ signal }) => getAgentsSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAgentsSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAgentsSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getAgentsSummary>>>
+export type GetAgentsSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary ملخص حوالات كل المناديب مع الإجماليات
+ */
+
+export function useGetAgentsSummary<TData = Awaited<ReturnType<typeof getAgentsSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAgentsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAgentsSummaryQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

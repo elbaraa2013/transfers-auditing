@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAgents,
@@ -7,9 +7,15 @@ import {
   useRejectTransfer,
   useCreateAgent,
   useChangeTransferAgent,
+  useDeleteTransfer,
+  useGetAgentsSummary,
+  useGetDailyRecipientSummary,
   getGetAgentStatementQueryKey,
+  getGetAgentsSummaryQueryKey,
+  getGetDailyRecipientSummaryQueryKey,
   getListAgentsQueryKey,
-  TransferStatus
+  TransferStatus,
+  type Transfer
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,11 +23,55 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft } from "lucide-react";
+import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft, Trash2, Users, CalendarDays } from "lucide-react";
+
+function todayLocal(): string {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+// The date used for range filtering must match the date shown in the table:
+// prefer the (OCR-parsed) transferDate when it's a valid date, otherwise fall
+// back to the reliable system createdAt. Compared in local time (en-CA →
+// YYYY-MM-DD) so it lines up with the <input type="date"> values.
+function effectiveDateKey(t: Transfer): string {
+  if (t.transferDate) {
+    const parsed = new Date(t.transferDate);
+    if (!isNaN(parsed.getTime())) return parsed.toLocaleDateString("en-CA");
+  }
+  return new Date(t.createdAt).toLocaleDateString("en-CA");
+}
+
+function computeSummary(transfers: Transfer[]) {
+  const sum = (list: Transfer[]) => list.reduce((s, t) => s + Number(t.amount), 0);
+  const approved = transfers.filter(t => t.status === TransferStatus.approved);
+  const pending = transfers.filter(t => t.status === TransferStatus.pending);
+  const rejected = transfers.filter(t => t.status === TransferStatus.rejected);
+  return {
+    totalCount: transfers.length,
+    totalAmount: sum(transfers),
+    approvedCount: approved.length,
+    approvedAmount: sum(approved),
+    pendingCount: pending.length,
+    pendingAmount: sum(pending),
+    rejectedCount: rejected.length,
+    rejectedAmount: sum(rejected)
+  };
+}
 
 export default function Statement() {
   const [selectedAgentId, setSelectedAgentId] = useState<number | undefined>();
@@ -30,6 +80,10 @@ export default function Statement() {
   const [newPhone, setNewPhone] = useState("");
   const [changeAgentFor, setChangeAgentFor] = useState<number | null>(null);
   const [changeAgentTarget, setChangeAgentTarget] = useState<string>("");
+  const [deleteTarget, setDeleteTarget] = useState<Transfer | null>(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [dailyDate, setDailyDate] = useState(todayLocal());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -42,16 +96,38 @@ export default function Statement() {
     }
   });
 
-  const invalidateStatement = () => {
+  const { data: agentsSummary, isLoading: summaryLoading } = useGetAgentsSummary();
+  const { data: dailyRecipients, isLoading: dailyLoading } = useGetDailyRecipientSummary(
+    { date: dailyDate },
+    { query: { queryKey: getGetDailyRecipientSummaryQueryKey({ date: dailyDate }) } }
+  );
+
+  const filteredTransfers = useMemo(() => {
+    if (!statement) return [];
+    return statement.transfers.filter(t => {
+      const d = effectiveDateKey(t);
+      if (fromDate && d < fromDate) return false;
+      if (toDate && d > toDate) return false;
+      return true;
+    });
+  }, [statement, fromDate, toDate]);
+
+  const periodSummary = useMemo(() => computeSummary(filteredTransfers), [filteredTransfers]);
+  const isFiltered = !!(fromDate || toDate);
+
+  const invalidateAll = () => {
     if (selectedAgentId) {
       queryClient.invalidateQueries({ queryKey: getGetAgentStatementQueryKey(selectedAgentId) });
     }
+    queryClient.invalidateQueries({ queryKey: getGetAgentsSummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetDailyRecipientSummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListAgentsQueryKey() });
   };
 
   const approveMutation = useApproveTransfer({
     mutation: {
       onSuccess: () => {
-        invalidateStatement();
+        invalidateAll();
         toast({ title: "تم الاعتماد", description: "تم اعتماد الحوالة بنجاح" });
       }
     }
@@ -60,8 +136,26 @@ export default function Statement() {
   const rejectMutation = useRejectTransfer({
     mutation: {
       onSuccess: () => {
-        invalidateStatement();
+        invalidateAll();
         toast({ title: "تم الرفض", description: "تم رفض الحوالة بنجاح" });
+      }
+    }
+  });
+
+  const deleteMutation = useDeleteTransfer({
+    mutation: {
+      onSuccess: () => {
+        invalidateAll();
+        toast({ title: "تم الحذف", description: "تم حذف العملية بنجاح" });
+        setDeleteTarget(null);
+      },
+      onError: (err: any) => {
+        toast({
+          title: "تعذّر الحذف",
+          description: err?.message || "حدث خطأ أثناء حذف العملية",
+          variant: "destructive"
+        });
+        setDeleteTarget(null);
       }
     }
   });
@@ -70,6 +164,7 @@ export default function Statement() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListAgentsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAgentsSummaryQueryKey() });
         toast({ title: "تمت الإضافة", description: "تم إضافة المندوب بنجاح" });
         setAddOpen(false);
         setNewName("");
@@ -84,8 +179,7 @@ export default function Statement() {
   const changeAgentMutation = useChangeTransferAgent({
     mutation: {
       onSuccess: () => {
-        invalidateStatement();
-        queryClient.invalidateQueries({ queryKey: getListAgentsQueryKey() });
+        invalidateAll();
         toast({ title: "تم التغيير", description: "تم تغيير المندوب بنجاح" });
         setChangeAgentFor(null);
         setChangeAgentTarget("");
@@ -112,215 +206,396 @@ export default function Statement() {
   };
 
   return (
-    <div className="space-y-6 print-area">
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-lg border shadow-sm no-print">
-        <BookOpen className="w-6 h-6 text-[#0F6E56] flex-shrink-0" />
-        <div className="w-full md:w-96">
-          <Select value={selectedAgentId?.toString()} onValueChange={(v) => setSelectedAgentId(parseInt(v))}>
-            <SelectTrigger>
-              <SelectValue placeholder="اختر مندوباً لعرض كشف الحساب..." />
-            </SelectTrigger>
-            <SelectContent>
-              {agents?.map(a => (
-                <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex gap-2 md:mr-auto w-full md:w-auto">
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-[#0F6E56] hover:bg-[#0b5341] flex-1 md:flex-none">
-                <UserPlus className="w-4 h-4 ml-2" /> إضافة مندوب
-              </Button>
-            </DialogTrigger>
-            <DialogContent dir="rtl">
-              <DialogHeader>
-                <DialogTitle>إضافة مندوب جديد</DialogTitle>
-                <DialogDescription>أدخل اسم المندوب ورقم هاتفه لإضافته إلى النظام.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">اسم المندوب</label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="الاسم الكامل" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">رقم الهاتف</label>
-                  <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="09xxxxxxxx" dir="ltr" className="text-right" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setAddOpen(false)}>إلغاء</Button>
-                <Button
-                  className="bg-[#0F6E56] hover:bg-[#0b5341]"
-                  onClick={() => createAgentMutation.mutate({ data: { name: newName.trim(), phone: newPhone.trim() } })}
-                  disabled={createAgentMutation.isPending || !newName.trim() || !newPhone.trim()}
-                >
-                  إضافة
+    <div className="space-y-6">
+      <Tabs defaultValue="statement" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 no-print">
+          <TabsTrigger value="statement">
+            <BookOpen className="w-4 h-4 ml-2" /> كشف حساب مندوب
+          </TabsTrigger>
+          <TabsTrigger value="agents">
+            <Users className="w-4 h-4 ml-2" /> ملخص المناديب
+          </TabsTrigger>
+          <TabsTrigger value="daily">
+            <CalendarDays className="w-4 h-4 ml-2" /> ملخص اليوم
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ===== Per-agent statement ===== */}
+        <TabsContent value="statement" className="space-y-6 print-area">
+          <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-lg border shadow-sm no-print">
+            <BookOpen className="w-6 h-6 text-[#0F6E56] flex-shrink-0" />
+            <div className="w-full md:w-80">
+              <Select value={selectedAgentId?.toString()} onValueChange={(v) => setSelectedAgentId(parseInt(v))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر مندوباً لعرض كشف الحساب..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {agents?.map(a => (
+                    <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 md:mr-auto w-full md:w-auto">
+              <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-[#0F6E56] hover:bg-[#0b5341] flex-1 md:flex-none">
+                    <UserPlus className="w-4 h-4 ml-2" /> إضافة مندوب
+                  </Button>
+                </DialogTrigger>
+                <DialogContent dir="rtl">
+                  <DialogHeader>
+                    <DialogTitle>إضافة مندوب جديد</DialogTitle>
+                    <DialogDescription>أدخل اسم المندوب ورقم هاتفه لإضافته إلى النظام.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">اسم المندوب</label>
+                      <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="الاسم الكامل" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">رقم الهاتف</label>
+                      <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="09xxxxxxxx" dir="ltr" className="text-right" />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAddOpen(false)}>إلغاء</Button>
+                    <Button
+                      className="bg-[#0F6E56] hover:bg-[#0b5341]"
+                      onClick={() => createAgentMutation.mutate({ data: { name: newName.trim(), phone: newPhone.trim() } })}
+                      disabled={createAgentMutation.isPending || !newName.trim() || !newPhone.trim()}
+                    >
+                      إضافة
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              {selectedAgentId && statement && (
+                <Button variant="outline" onClick={() => window.print()} className="flex-1 md:flex-none">
+                  <Printer className="w-4 h-4 ml-2" /> طباعة
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {selectedAgentId && statement && (
-            <Button variant="outline" onClick={() => window.print()} className="flex-1 md:flex-none">
-              <Printer className="w-4 h-4 ml-2" /> طباعة
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {!selectedAgentId ? (
-        <div className="text-center py-20 bg-white rounded-lg border border-gray-200">
-          <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-500">الرجاء اختيار مندوب</h2>
-          <p className="text-gray-400 mt-2">اختر مندوباً من القائمة أعلاه لعرض كشف الحساب الخاص به.</p>
-        </div>
-      ) : isLoading ? (
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="p-6 flex justify-between items-center">
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-              <div className="text-left space-y-2">
-                <Skeleton className="h-4 w-24 ml-auto" />
-                <Skeleton className="h-8 w-40 ml-auto" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <Skeleton className="h-[400px] w-full" />
-            </CardContent>
-          </Card>
-        </div>
-      ) : statement ? (
-        <div className="space-y-6">
-          <Card className="bg-[#0F6E56] text-white border-none shadow-md">
-            <CardContent className="p-6 flex flex-col md:flex-row justify-between items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold">{statement.agent.name}</h2>
-                <p className="text-emerald-100 mt-1" dir="ltr">{statement.agent.phone}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-emerald-100 text-sm mb-1">الرصيد الحالي (المعتمد)</p>
-                <p className="text-3xl font-bold bg-white/20 px-4 py-2 rounded-md backdrop-blur-sm">
-                  {formatCurrency(statement.balance)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-gray-500">إجمالي الحوالات</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{statement.summary.totalCount}</p>
-                <p className="text-sm text-gray-500 mt-1">{formatCurrency(statement.summary.totalAmount)}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-green-100">
-              <CardContent className="p-4">
-                <p className="text-sm text-green-700">المعتمدة</p>
-                <p className="text-2xl font-bold text-green-700 mt-1">{statement.summary.approvedCount}</p>
-                <p className="text-sm text-green-600 mt-1">{formatCurrency(statement.summary.approvedAmount)}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-amber-100">
-              <CardContent className="p-4">
-                <p className="text-sm text-amber-700">المعلقة</p>
-                <p className="text-2xl font-bold text-amber-700 mt-1">{statement.summary.pendingCount}</p>
-                <p className="text-sm text-amber-600 mt-1">{formatCurrency(statement.summary.pendingAmount)}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-red-100">
-              <CardContent className="p-4">
-                <p className="text-sm text-red-700">المرفوضة</p>
-                <p className="text-2xl font-bold text-red-700 mt-1">{statement.summary.rejectedCount}</p>
-                <p className="text-sm text-red-600 mt-1">{formatCurrency(statement.summary.rejectedAmount)}</p>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </div>
 
+          {!selectedAgentId ? (
+            <div className="text-center py-20 bg-white rounded-lg border border-gray-200">
+              <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-gray-500">الرجاء اختيار مندوب</h2>
+              <p className="text-gray-400 mt-2">اختر مندوباً من القائمة أعلاه لعرض كشف الحساب الخاص به.</p>
+            </div>
+          ) : isLoading ? (
+            <div className="space-y-6">
+              <Card>
+                <CardContent className="p-6 flex justify-between items-center">
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <div className="text-left space-y-2">
+                    <Skeleton className="h-4 w-24 ml-auto" />
+                    <Skeleton className="h-8 w-40 ml-auto" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <Skeleton className="h-[400px] w-full" />
+                </CardContent>
+              </Card>
+            </div>
+          ) : statement ? (
+            <div className="space-y-6">
+              <Card className="bg-[#0F6E56] text-white border-none shadow-md">
+                <CardContent className="p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold">{statement.agent.name}</h2>
+                    <p className="text-emerald-100 mt-1" dir="ltr">{statement.agent.phone}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-emerald-100 text-sm mb-1">الرصيد الحالي (المعتمد)</p>
+                    <p className="text-3xl font-bold bg-white/20 px-4 py-2 rounded-md backdrop-blur-sm">
+                      {formatCurrency(statement.balance)}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Date-range filter */}
+              <Card className="no-print">
+                <CardContent className="p-4 flex flex-col md:flex-row items-end gap-4">
+                  <div className="space-y-1 w-full md:w-auto">
+                    <label className="text-sm font-medium text-gray-700">من تاريخ</label>
+                    <Input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1 w-full md:w-auto">
+                    <label className="text-sm font-medium text-gray-700">إلى تاريخ</label>
+                    <Input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} />
+                  </div>
+                  {isFiltered && (
+                    <Button variant="outline" onClick={() => { setFromDate(""); setToDate(""); }}>
+                      مسح الفترة
+                    </Button>
+                  )}
+                  <p className="text-sm text-gray-500 md:mr-auto">
+                    {isFiltered ? "كشف حساب لفترة معينة" : "كشف الحساب الكامل"}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-sm text-gray-500">إجمالي الحوالات{isFiltered ? " (الفترة)" : ""}</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">{periodSummary.totalCount}</p>
+                    <p className="text-sm text-gray-500 mt-1">{formatCurrency(periodSummary.totalAmount)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-green-100">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-green-700">المعتمدة</p>
+                    <p className="text-2xl font-bold text-green-700 mt-1">{periodSummary.approvedCount}</p>
+                    <p className="text-sm text-green-600 mt-1">{formatCurrency(periodSummary.approvedAmount)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-amber-100">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-amber-700">المعلقة</p>
+                    <p className="text-2xl font-bold text-amber-700 mt-1">{periodSummary.pendingCount}</p>
+                    <p className="text-sm text-amber-600 mt-1">{formatCurrency(periodSummary.pendingAmount)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-red-100">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-red-700">المرفوضة</p>
+                    <p className="text-2xl font-bold text-red-700 mt-1">{periodSummary.rejectedCount}</p>
+                    <p className="text-sm text-red-600 mt-1">{formatCurrency(periodSummary.rejectedAmount)}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>حركة الحساب</CardTitle>
+                  <CardDescription>
+                    {isFiltered
+                      ? `الحوالات ضمن الفترة المحددة (${filteredTransfers.length} عملية).`
+                      : "جميع الحوالات والعمليات مرتبة من الأحدث إلى الأقدم."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border border-gray-200">
+                    <Table>
+                      <TableHeader className="bg-gray-50">
+                        <TableRow>
+                          <TableHead className="text-right">التاريخ والزمن</TableHead>
+                          <TableHead className="text-right">رقم العملية</TableHead>
+                          <TableHead className="text-right">المرسل إليه</TableHead>
+                          <TableHead className="text-right">المبلغ</TableHead>
+                          <TableHead className="text-center">الحالة</TableHead>
+                          <TableHead className="text-center no-print">إجراء</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredTransfers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-10 text-gray-500">
+                              {isFiltered ? "لا توجد حركات ضمن الفترة المحددة." : "لا توجد حركات مسجلة لهذا المندوب."}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredTransfers.map(transfer => (
+                            <TableRow key={transfer.id} className="hover:bg-gray-50">
+                              <TableCell className="text-sm">{transfer.transferDate ? formatDate(transfer.transferDate) : formatDateTime(transfer.createdAt)}</TableCell>
+                              <TableCell className="font-mono text-sm">{transfer.operationNumber}</TableCell>
+                              <TableCell>{transfer.recipientName || "—"}</TableCell>
+                              <TableCell className="font-bold text-gray-900">{formatCurrency(transfer.amount)}</TableCell>
+                              <TableCell className="text-center">{getStatusBadge(transfer.status)}</TableCell>
+                              <TableCell className="text-center no-print">
+                                <div className="flex items-center justify-center gap-2">
+                                  {transfer.status === TransferStatus.pending && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        className="bg-[#16A34A] hover:bg-[#15803d] text-white h-8"
+                                        onClick={() => approveMutation.mutate({ id: transfer.id })}
+                                        disabled={approveMutation.isPending || rejectMutation.isPending}
+                                      >
+                                        اعتماد
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        className="h-8"
+                                        onClick={() => rejectMutation.mutate({ id: transfer.id })}
+                                        disabled={approveMutation.isPending || rejectMutation.isPending}
+                                      >
+                                        رفض
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8"
+                                        onClick={() => { setChangeAgentFor(transfer.id); setChangeAgentTarget(""); }}
+                                        disabled={approveMutation.isPending || rejectMutation.isPending}
+                                        title="تغيير المندوب"
+                                      >
+                                        <ArrowRightLeft className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  {transfer.status === TransferStatus.approved && (
+                                    <span className="flex items-center text-gray-400" title="حوالة معتمدة (مقفلة)">
+                                      <Lock className="w-4 h-4" />
+                                    </span>
+                                  )}
+                                  {transfer.status !== TransferStatus.approved && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() => setDeleteTarget(transfer)}
+                                      title="حذف العملية"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+        </TabsContent>
+
+        {/* ===== All agents summary ===== */}
+        <TabsContent value="agents" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>حركة الحساب</CardTitle>
-              <CardDescription>جميع الحوالات والعمليات مرتبة من الأحدث إلى الأقدم.</CardDescription>
+              <CardTitle>ملخص حوالات كل المناديب</CardTitle>
+              <CardDescription>إجمالي الحوالات والمبالغ لكل مندوب مع الإجمالي العام.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border border-gray-200">
-                <Table>
-                  <TableHeader className="bg-gray-50">
-                    <TableRow>
-                      <TableHead className="text-right">التاريخ والزمن</TableHead>
-                      <TableHead className="text-right">رقم العملية</TableHead>
-                      <TableHead className="text-right">المرسل إليه</TableHead>
-                      <TableHead className="text-right">المبلغ</TableHead>
-                      <TableHead className="text-center">الحالة</TableHead>
-                      <TableHead className="text-center no-print">إجراء</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {statement.transfers.length === 0 ? (
+              {summaryLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <div className="rounded-md border border-gray-200">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-10 text-gray-500">لا توجد حركات مسجلة لهذا المندوب.</TableCell>
+                        <TableHead className="text-right">المندوب</TableHead>
+                        <TableHead className="text-center">عدد الحوالات</TableHead>
+                        <TableHead className="text-right">إجمالي المبلغ</TableHead>
+                        <TableHead className="text-right">المعتمد</TableHead>
+                        <TableHead className="text-right">المعلق</TableHead>
+                        <TableHead className="text-right">المرفوض</TableHead>
                       </TableRow>
-                    ) : (
-                      statement.transfers.map(transfer => (
-                        <TableRow key={transfer.id} className="hover:bg-gray-50">
-                          <TableCell className="text-sm">{transfer.transferDate ? formatDate(transfer.transferDate) : formatDateTime(transfer.createdAt)}</TableCell>
-                          <TableCell className="font-mono text-sm">{transfer.operationNumber}</TableCell>
-                          <TableCell>{transfer.recipientName || "—"}</TableCell>
-                          <TableCell className="font-bold text-gray-900">{formatCurrency(transfer.amount)}</TableCell>
-                          <TableCell className="text-center">{getStatusBadge(transfer.status)}</TableCell>
-                          <TableCell className="text-center no-print">
-                            {transfer.status === TransferStatus.pending ? (
-                              <div className="flex items-center justify-center gap-2">
-                                <Button
-                                  size="sm"
-                                  className="bg-[#16A34A] hover:bg-[#15803d] text-white h-8"
-                                  onClick={() => approveMutation.mutate({ id: transfer.id })}
-                                  disabled={approveMutation.isPending || rejectMutation.isPending}
-                                >
-                                  اعتماد
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  className="h-8"
-                                  onClick={() => rejectMutation.mutate({ id: transfer.id })}
-                                  disabled={approveMutation.isPending || rejectMutation.isPending}
-                                >
-                                  رفض
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8"
-                                  onClick={() => { setChangeAgentFor(transfer.id); setChangeAgentTarget(""); }}
-                                  disabled={approveMutation.isPending || rejectMutation.isPending}
-                                  title="تغيير المندوب"
-                                >
-                                  <ArrowRightLeft className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ) : transfer.status === TransferStatus.approved ? (
-                              <div className="flex items-center justify-center text-gray-400">
-                                <Lock className="w-4 h-4" />
-                              </div>
-                            ) : null}
-                          </TableCell>
+                    </TableHeader>
+                    <TableBody>
+                      {!agentsSummary || agentsSummary.agents.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-10 text-gray-500">لا يوجد مناديب مسجلون بعد.</TableCell>
                         </TableRow>
-                      ))
+                      ) : (
+                        agentsSummary.agents.map(row => (
+                          <TableRow key={row.agentId} className="hover:bg-gray-50">
+                            <TableCell className="font-medium">{row.agentName}</TableCell>
+                            <TableCell className="text-center">{row.totalCount}</TableCell>
+                            <TableCell className="font-bold text-gray-900">{formatCurrency(row.totalAmount)}</TableCell>
+                            <TableCell className="text-green-700">{formatCurrency(row.approvedAmount)}</TableCell>
+                            <TableCell className="text-amber-700">{formatCurrency(row.pendingAmount)}</TableCell>
+                            <TableCell className="text-red-700">{formatCurrency(row.rejectedAmount)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                    {agentsSummary && agentsSummary.agents.length > 0 && (
+                      <tfoot>
+                        <TableRow className="bg-[#0F6E56]/5 font-bold border-t-2 border-[#0F6E56]/20">
+                          <TableCell className="font-bold">الإجمالي العام</TableCell>
+                          <TableCell className="text-center">{agentsSummary.totals.totalCount}</TableCell>
+                          <TableCell className="font-bold text-[#0F6E56]">{formatCurrency(agentsSummary.totals.totalAmount)}</TableCell>
+                          <TableCell className="text-green-700">{formatCurrency(agentsSummary.totals.approvedAmount)}</TableCell>
+                          <TableCell className="text-amber-700">{formatCurrency(agentsSummary.totals.pendingAmount)}</TableCell>
+                          <TableCell className="text-red-700">{formatCurrency(agentsSummary.totals.rejectedAmount)}</TableCell>
+                        </TableRow>
+                      </tfoot>
                     )}
-                  </TableBody>
-                </Table>
-              </div>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
-        </div>
-      ) : null}
+        </TabsContent>
+
+        {/* ===== Daily recipient summary ===== */}
+        <TabsContent value="daily" className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle>ملخص تحاويل اليوم للحسابات المرسل إليها</CardTitle>
+                <CardDescription>إجمالي الحوالات لكل حساب مرسل إليه في اليوم المحدد.</CardDescription>
+              </div>
+              <div className="w-full md:w-56">
+                <Input type="date" value={dailyDate} max={todayLocal()} onChange={(e) => setDailyDate(e.target.value)} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {dailyLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <div className="rounded-md border border-gray-200">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
+                      <TableRow>
+                        <TableHead className="text-right">الحساب المرسل إليه</TableHead>
+                        <TableHead className="text-center">عدد الحوالات</TableHead>
+                        <TableHead className="text-right">إجمالي المبلغ</TableHead>
+                        <TableHead className="text-right">المعتمد</TableHead>
+                        <TableHead className="text-right">المعلق</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!dailyRecipients || dailyRecipients.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-10 text-gray-500">لا توجد حوالات مسجلة في هذا اليوم.</TableCell>
+                        </TableRow>
+                      ) : (
+                        dailyRecipients.map((row, idx) => (
+                          <TableRow key={idx} className="hover:bg-gray-50">
+                            <TableCell className="font-medium">{row.account || "غير محدد"}</TableCell>
+                            <TableCell className="text-center">{row.count}</TableCell>
+                            <TableCell className="font-bold text-gray-900">{formatCurrency(row.totalAmount)}</TableCell>
+                            <TableCell className="text-green-700">{formatCurrency(row.approvedAmount)}</TableCell>
+                            <TableCell className="text-amber-700">{formatCurrency(row.pendingAmount)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                    {dailyRecipients && dailyRecipients.length > 0 && (
+                      <tfoot>
+                        <TableRow className="bg-[#0F6E56]/5 font-bold border-t-2 border-[#0F6E56]/20">
+                          <TableCell className="font-bold">الإجمالي</TableCell>
+                          <TableCell className="text-center">{dailyRecipients.reduce((s, r) => s + r.count, 0)}</TableCell>
+                          <TableCell className="font-bold text-[#0F6E56]">{formatCurrency(dailyRecipients.reduce((s, r) => s + r.totalAmount, 0))}</TableCell>
+                          <TableCell className="text-green-700">{formatCurrency(dailyRecipients.reduce((s, r) => s + r.approvedAmount, 0))}</TableCell>
+                          <TableCell className="text-amber-700">{formatCurrency(dailyRecipients.reduce((s, r) => s + r.pendingAmount, 0))}</TableCell>
+                        </TableRow>
+                      </tfoot>
+                    )}
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!changeAgentFor} onOpenChange={(open) => !open && setChangeAgentFor(null)}>
         <DialogContent dir="rtl">
@@ -352,6 +627,31 @@ export default function Statement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف العملية</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف الحوالة رقم{" "}
+              <span className="font-mono font-bold">{deleteTarget?.operationNumber}</span>؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#DC2626] hover:bg-[#b91c1c]"
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) deleteMutation.mutate({ id: deleteTarget.id });
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

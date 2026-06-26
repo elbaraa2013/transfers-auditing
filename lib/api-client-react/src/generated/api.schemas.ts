@@ -125,6 +125,44 @@ export interface AgentStatement {
   transfers: Transfer[];
 }
 
+export interface RecipientDailySummary {
+  /** @nullable */
+  account: string | null;
+  count: number;
+  totalAmount: number;
+  approvedAmount: number;
+  pendingAmount: number;
+}
+
+export interface SummaryTotals {
+  totalCount: number;
+  totalAmount: number;
+  approvedCount: number;
+  approvedAmount: number;
+  pendingCount: number;
+  pendingAmount: number;
+  rejectedCount: number;
+  rejectedAmount: number;
+}
+
+export interface AgentSummaryRow {
+  agentId: number;
+  agentName: string;
+  totalCount: number;
+  totalAmount: number;
+  approvedCount: number;
+  approvedAmount: number;
+  pendingCount: number;
+  pendingAmount: number;
+  rejectedCount: number;
+  rejectedAmount: number;
+}
+
+export interface AgentsSummary {
+  agents: AgentSummaryRow[];
+  totals: SummaryTotals;
+}
+
 export interface ScanInput {
   imageBase64: string;
 }
@@ -203,4 +241,11 @@ export const ListTransfersStatus = {
   approved: 'approved',
   rejected: 'rejected',
 } as const;
+
+export type GetDailyRecipientSummaryParams = {
+/**
+ * @nullable
+ */
+date?: string | null;
+};
 

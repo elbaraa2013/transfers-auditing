@@ -8,9 +8,12 @@
 
 export * from './agent';
 export * from './agentInput';
+export * from './agentsSummary';
 export * from './agentStatement';
+export * from './agentSummaryRow';
 export * from './changeAgentInput';
 export * from './conversation';
+export * from './getDailyRecipientSummaryParams';
 export * from './healthStatus';
 export * from './inactiveAgent';
 export * from './listTransfersParams';
@@ -18,10 +21,12 @@ export * from './listTransfersStatus';
 export * from './message';
 export * from './messageDirection';
 export * from './messageType';
+export * from './recipientDailySummary';
 export * from './rejectInput';
 export * from './scanInput';
 export * from './scanResult';
 export * from './statementSummary';
+export * from './summaryTotals';
 export * from './transfer';
 export * from './transferInput';
 export * from './transferRiskLevel';
