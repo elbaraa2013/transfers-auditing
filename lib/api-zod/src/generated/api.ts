@@ -40,6 +40,7 @@ export const ListTransfersResponseItem = zod.object({
   "agentName": zod.string(),
   "rejectionReason": zod.string().nullish(),
   "transferDate": zod.string().nullish(),
+  "paymentMethod": zod.enum(['bankak', 'cash']),
   "createdAt": zod.string()
 })
 export const ListTransfersResponse = zod.array(ListTransfersResponseItem)
@@ -57,6 +58,18 @@ export const CreateTransferBody = zod.object({
   "comment": zod.string().optional(),
   "agentId": zod.number(),
   "riskScore": zod.number(),
+  "transferDate": zod.string().optional()
+})
+
+
+/**
+ * @summary تسجيل دفعة نقدية
+ */
+export const CreateCashPaymentBody = zod.object({
+  "agentId": zod.number(),
+  "amount": zod.number(),
+  "recipientName": zod.string().optional(),
+  "comment": zod.string().optional(),
   "transferDate": zod.string().optional()
 })
 
@@ -94,6 +107,7 @@ export const ListPendingTransfersResponseItem = zod.object({
   "agentName": zod.string(),
   "rejectionReason": zod.string().nullish(),
   "transferDate": zod.string().nullish(),
+  "paymentMethod": zod.enum(['bankak', 'cash']),
   "createdAt": zod.string()
 })
 export const ListPendingTransfersResponse = zod.array(ListPendingTransfersResponseItem)
@@ -121,6 +135,7 @@ export const GetTransferResponse = zod.object({
   "agentName": zod.string(),
   "rejectionReason": zod.string().nullish(),
   "transferDate": zod.string().nullish(),
+  "paymentMethod": zod.enum(['bankak', 'cash']),
   "createdAt": zod.string()
 })
 
@@ -155,6 +170,7 @@ export const ApproveTransferResponse = zod.object({
   "agentName": zod.string(),
   "rejectionReason": zod.string().nullish(),
   "transferDate": zod.string().nullish(),
+  "paymentMethod": zod.enum(['bankak', 'cash']),
   "createdAt": zod.string()
 })
 
@@ -185,6 +201,7 @@ export const ChangeTransferAgentResponse = zod.object({
   "agentName": zod.string(),
   "rejectionReason": zod.string().nullish(),
   "transferDate": zod.string().nullish(),
+  "paymentMethod": zod.enum(['bankak', 'cash']),
   "createdAt": zod.string()
 })
 
@@ -215,6 +232,7 @@ export const RejectTransferResponse = zod.object({
   "agentName": zod.string(),
   "rejectionReason": zod.string().nullish(),
   "transferDate": zod.string().nullish(),
+  "paymentMethod": zod.enum(['bankak', 'cash']),
   "createdAt": zod.string()
 })
 
@@ -382,6 +400,7 @@ export const GetAgentStatementResponse = zod.object({
   "agentName": zod.string(),
   "rejectionReason": zod.string().nullish(),
   "transferDate": zod.string().nullish(),
+  "paymentMethod": zod.enum(['bankak', 'cash']),
   "createdAt": zod.string()
 }))
 })

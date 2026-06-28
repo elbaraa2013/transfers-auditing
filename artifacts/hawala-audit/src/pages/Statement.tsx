@@ -445,6 +445,7 @@ export default function Statement() {
                           <TableHead className="text-right">التاريخ والزمن</TableHead>
                           <TableHead className="text-right">رقم العملية</TableHead>
                           <TableHead className="text-right">المرسل إليه</TableHead>
+                          <TableHead className="text-center">طريقة الدفع</TableHead>
                           <TableHead className="text-right">المبلغ</TableHead>
                           <TableHead className="text-center">الحالة</TableHead>
                           <TableHead className="text-center no-print">إجراء</TableHead>
@@ -453,7 +454,7 @@ export default function Statement() {
                       <TableBody>
                         {filteredTransfers.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} className="text-center py-10 text-gray-500">
+                            <TableCell colSpan={7} className="text-center py-10 text-gray-500">
                               {isFiltered ? "لا توجد حركات ضمن الفترة المحددة." : "لا توجد حركات مسجلة لهذا المندوب."}
                             </TableCell>
                           </TableRow>
@@ -463,6 +464,13 @@ export default function Statement() {
                               <TableCell className="text-sm">{transfer.transferDate ? formatDate(transfer.transferDate) : formatDateTime(transfer.createdAt)}</TableCell>
                               <TableCell className="font-mono text-sm">{transfer.operationNumber}</TableCell>
                               <TableCell>{transfer.recipientName || "—"}</TableCell>
+                              <TableCell className="text-center">
+                                {transfer.paymentMethod === "cash" ? (
+                                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">نقدي</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-gray-600">بنكك</Badge>
+                                )}
+                              </TableCell>
                               <TableCell className="font-bold text-gray-900">{formatCurrency(transfer.amount)}</TableCell>
                               <TableCell className="text-center">{getStatusBadge(transfer.status)}</TableCell>
                               <TableCell className="text-center no-print">

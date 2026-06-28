@@ -24,6 +24,7 @@ import type {
   AgentInput,
   AgentStatement,
   AgentsSummary,
+  CashPaymentInput,
   ChangeAgentInput,
   Conversation,
   GetAgentsSummaryParams,
@@ -281,6 +282,77 @@ export const useCreateTransfer = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateTransferMutationOptions(options));
+    }
+
+export const getCreateCashPaymentUrl = () => {
+
+
+
+
+  return `/api/transfers/cash`
+}
+
+/**
+ * @summary تسجيل دفعة نقدية
+ */
+export const createCashPayment = async (cashPaymentInput: CashPaymentInput, options?: RequestInit): Promise<Transfer> => {
+
+  return customFetch<Transfer>(getCreateCashPaymentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cashPaymentInput,)
+  }
+);}
+
+
+
+
+export const getCreateCashPaymentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCashPayment>>, TError,{data: BodyType<CashPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCashPayment>>, TError,{data: BodyType<CashPaymentInput>}, TContext> => {
+
+const mutationKey = ['createCashPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCashPayment>>, {data: BodyType<CashPaymentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCashPayment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCashPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createCashPayment>>>
+    export type CreateCashPaymentMutationBody = BodyType<CashPaymentInput>
+    export type CreateCashPaymentMutationError = ErrorType<void>
+
+    /**
+ * @summary تسجيل دفعة نقدية
+ */
+export const useCreateCashPayment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCashPayment>>, TError,{data: BodyType<CashPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCashPayment>>,
+        TError,
+        {data: BodyType<CashPaymentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCashPaymentMutationOptions(options));
     }
 
 export const getGetTransferStatsUrl = () => {

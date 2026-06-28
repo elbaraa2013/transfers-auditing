@@ -1,3 +1,4 @@
 - [OCR scan pipeline](ocr-scan-pipeline.md) — /api/scan uses offline Tesseract via Python subprocess (not EasyOCR/AI vision); EasyOCR won't install here.
 - [hawala-audit multi-tenancy](multi-tenancy.md) — single-DB logical isolation; every query (incl. joins) must filter by ownerId; operationNumber unique per-owner.
 - [Orval codegen collision](orval-codegen-conflicts.md) — never add query params to a path-param endpoint; emits duplicate `<Op>Params` → TS2308 in api-zod barrel.
+- [Transfer response shape](transfer-response-shape.md) — Transfer object built in 2 places (transfers.ts buildTransferResponse + agents.ts statement map); new fields go in both.

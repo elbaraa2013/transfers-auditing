@@ -20,6 +20,7 @@ export const transfersTable = pgTable(
     agentId: integer("agent_id").notNull().references(() => agentsTable.id),
     rejectionReason: text("rejection_reason"),
     transferDate: text("transfer_date"),
+    paymentMethod: text("payment_method", { enum: ["bankak", "cash"] }).notNull().default("bankak"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [

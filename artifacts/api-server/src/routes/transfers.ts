@@ -27,6 +27,7 @@ async function buildTransferResponse(transfer: typeof transfersTable.$inferSelec
     agentName,
     rejectionReason: transfer.rejectionReason,
     transferDate: transfer.transferDate,
+    paymentMethod: transfer.paymentMethod,
     createdAt: transfer.createdAt.toISOString(),
   };
 }
@@ -104,6 +105,68 @@ router.post("/transfers", async (req, res) => {
 
   // Update agent last activity
   await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(and(eq(agentsTable.id, agentId), eq(agentsTable.ownerId, ownerId)));
+
+  res.status(201).json(await buildTransferResponse(created, agent[0].name));
+});
+
+// POST /api/transfers/cash — record a manual cash payment (no receipt/scan)
+router.post("/transfers/cash", async (req, res) => {
+  const ownerId = req.userId!;
+  const { agentId, amount, comment, recipientName, transferDate } = req.body;
+
+  const numericAgentId = Number(agentId);
+  if (!Number.isInteger(numericAgentId)) {
+    res.status(400).json({ error: "المندوب غير صحيح" });
+    return;
+  }
+
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    res.status(400).json({ error: "المبلغ غير صحيح" });
+    return;
+  }
+
+  const agent = await db
+    .select()
+    .from(agentsTable)
+    .where(and(eq(agentsTable.id, numericAgentId), eq(agentsTable.ownerId, ownerId)))
+    .limit(1);
+  if (!agent.length) {
+    res.status(404).json({ error: "المندوب غير موجود" });
+    return;
+  }
+
+  const baseValues = {
+    ownerId,
+    amount: String(numericAmount),
+    recipientName: recipientName?.trim() || null,
+    comment: comment?.trim() || null,
+    agentId: numericAgentId,
+    riskScore: 0,
+    riskLevel: "low" as const,
+    transferDate: transferDate?.trim() || null,
+    paymentMethod: "cash" as const,
+    status: "pending" as const,
+  };
+
+  // operationNumber is unique per owner; retry on the rare collision.
+  let created: typeof transfersTable.$inferSelect | undefined;
+  for (let attempt = 0; attempt < 5 && !created; attempt++) {
+    const operationNumber = `CASH-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    try {
+      [created] = await db.insert(transfersTable).values({ ...baseValues, operationNumber }).returning();
+    } catch (err: any) {
+      if (err?.code === "23505" && attempt < 4) continue;
+      throw err;
+    }
+  }
+
+  if (!created) {
+    res.status(500).json({ error: "تعذّر إنشاء رقم مرجع فريد" });
+    return;
+  }
+
+  await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(and(eq(agentsTable.id, numericAgentId), eq(agentsTable.ownerId, ownerId)));
 
   res.status(201).json(await buildTransferResponse(created, agent[0].name));
 });

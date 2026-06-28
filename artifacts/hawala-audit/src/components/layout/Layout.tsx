@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
-import { LayoutDashboard, FileText, ScanLine, CheckSquare, UserX, BookOpen, MessageCircle, Landmark, LogOut, Download, Loader2 } from "lucide-react";
+import { LayoutDashboard, FileText, ScanLine, CheckSquare, UserX, BookOpen, MessageCircle, Landmark, LogOut, Download, Loader2, Banknote } from "lucide-react";
 import { useClerk, useUser } from "@clerk/react";
 import { useHealthCheck } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ const navigation = [
   { name: "نظرة عامة", href: "/overview", icon: LayoutDashboard },
   { name: "إدارة الحوالات", href: "/transfers", icon: FileText },
   { name: "مسح الحوالات", href: "/scan", icon: ScanLine, alert: true },
+  { name: "دفع نقدي", href: "/cash", icon: Banknote },
   { name: "المطابقة اليومية", href: "/matching", icon: CheckSquare, alert: true },
   { name: "تقرير الخمول", href: "/inactive", icon: UserX },
   { name: "كشف الحساب", href: "/statement", icon: BookOpen },

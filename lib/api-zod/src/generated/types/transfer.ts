@@ -5,6 +5,7 @@
  * نظام تدقيق الحوالات API
  * OpenAPI spec version: 0.1.0
  */
+import type { TransferPaymentMethod } from './transferPaymentMethod';
 import type { TransferRiskLevel } from './transferRiskLevel';
 import type { TransferStatus } from './transferStatus';
 
@@ -29,5 +30,6 @@ export interface Transfer {
   rejectionReason?: string | null;
   /** @nullable */
   transferDate?: string | null;
+  paymentMethod: TransferPaymentMethod;
   createdAt: string;
 }

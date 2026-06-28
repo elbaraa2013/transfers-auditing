@@ -77,6 +77,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/Transfer"
 
+  /transfers/cash:
+    post:
+      operationId: createCashPayment
+      tags: [transfers]
+      summary: تسجيل دفعة نقدية
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CashPaymentInput"
+      responses:
+        "201":
+          description: تم التسجيل
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "400":
+          description: بيانات غير صحيحة
+        "404":
+          description: المندوب غير موجود
+
   /transfers/stats:
     get:
       operationId: getTransferStats
@@ -444,6 +467,7 @@ components:
         - riskScore
         - agentId
         - agentName
+        - paymentMethod
         - createdAt
       properties:
         id:
@@ -476,6 +500,9 @@ components:
           type: ["string", "null"]
         transferDate:
           type: ["string", "null"]
+        paymentMethod:
+          type: string
+          enum: [bankak, cash]
         createdAt:
           type: string
 
@@ -503,6 +530,23 @@ components:
           type: integer
         riskScore:
           type: number
+        transferDate:
+          type: string
+
+    CashPaymentInput:
+      type: object
+      required:
+        - agentId
+        - amount
+      properties:
+        agentId:
+          type: integer
+        amount:
+          type: number
+        recipientName:
+          type: string
+        comment:
+          type: string
         transferDate:
           type: string
 

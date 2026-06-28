@@ -27,6 +27,14 @@ export const TransferRiskLevel = {
   high: 'high',
 } as const;
 
+export type TransferPaymentMethod = typeof TransferPaymentMethod[keyof typeof TransferPaymentMethod];
+
+
+export const TransferPaymentMethod = {
+  bankak: 'bankak',
+  cash: 'cash',
+} as const;
+
 export interface Transfer {
   id: number;
   operationNumber: string;
@@ -48,6 +56,7 @@ export interface Transfer {
   rejectionReason?: string | null;
   /** @nullable */
   transferDate?: string | null;
+  paymentMethod: TransferPaymentMethod;
   createdAt: string;
 }
 
@@ -60,6 +69,14 @@ export interface TransferInput {
   comment?: string;
   agentId: number;
   riskScore: number;
+  transferDate?: string;
+}
+
+export interface CashPaymentInput {
+  agentId: number;
+  amount: number;
+  recipientName?: string;
+  comment?: string;
   transferDate?: string;
 }
 

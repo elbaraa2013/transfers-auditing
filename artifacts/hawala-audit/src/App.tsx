@@ -26,6 +26,7 @@ import Landing from "@/pages/Landing";
 import Overview from "@/pages/Overview";
 import Transfers from "@/pages/Transfers";
 import Scan from "@/pages/Scan";
+import CashPayment from "@/pages/CashPayment";
 import Matching from "@/pages/Matching";
 import Inactive from "@/pages/Inactive";
 import Statement from "@/pages/Statement";
@@ -154,6 +155,7 @@ function Dashboard() {
         <Route path="/overview" component={Overview} />
         <Route path="/transfers" component={Transfers} />
         <Route path="/scan" component={Scan} />
+        <Route path="/cash" component={CashPayment} />
         <Route path="/matching" component={Matching} />
         <Route path="/inactive" component={Inactive} />
         <Route path="/statement" component={Statement} />

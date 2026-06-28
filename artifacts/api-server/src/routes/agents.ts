@@ -293,6 +293,7 @@ router.get("/agents/:id/statement", async (req, res) => {
     agentName: agents[0].name,
     rejectionReason: t.rejectionReason,
     transferDate: t.transferDate,
+    paymentMethod: t.paymentMethod,
     createdAt: t.createdAt.toISOString(),
   }));
 
