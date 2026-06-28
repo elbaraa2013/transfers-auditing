@@ -75,7 +75,7 @@ export default function Matching() {
         </div>
       ) : transfers?.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-lg border border-gray-200">
-          <Check className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <Check className="w-16 h-16 text-[#C9A227] mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-800">كل شيء مطابق!</h2>
           <p className="text-gray-500 mt-2">لا توجد حوالات معلقة في الوقت الحالي.</p>
         </div>
@@ -113,7 +113,7 @@ export default function Matching() {
                   
                   <div className="grid grid-cols-2 gap-3">
                     <Button 
-                      className="w-full bg-[#16A34A] hover:bg-[#15803d] text-white h-12 text-base font-semibold"
+                      className="w-full bg-[#C9A227] hover:bg-[#B8902F] text-[#1C1A17] h-12 text-base font-semibold"
                       onClick={() => approveMutation.mutate({ id: transfer.id })}
                       disabled={approveMutation.isPending || rejectMutation.isPending}
                     >

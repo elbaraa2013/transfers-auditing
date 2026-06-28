@@ -80,7 +80,7 @@ export default function CashPayment() {
       <Card className="no-print">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Banknote className="w-6 h-6 text-[#0F6E56]" />
+            <Banknote className="w-6 h-6 text-[#A6791E]" />
             تسجيل دفعة نقدية
           </CardTitle>
           <CardDescription>
@@ -136,7 +136,7 @@ export default function CashPayment() {
 
           <div className="flex flex-wrap gap-3 pt-2">
             <Button
-              className="bg-[#0F6E56] hover:bg-[#0b5341]"
+              className="bg-[#1C1A17] hover:bg-[#33302A]"
               onClick={handleSubmit}
               disabled={!canSubmit || createCash.isPending}
             >
@@ -180,7 +180,7 @@ function ReceiptRow({ label, value, strong, mono }: { label: string; value: stri
   return (
     <div className="flex justify-between items-center px-4 py-3">
       <span className="text-gray-500 text-sm">{label}</span>
-      <span className={`text-right ${strong ? "font-bold text-[#0F6E56] text-lg" : "font-medium"} ${mono ? "font-mono" : ""}`}>
+      <span className={`text-right ${strong ? "font-bold text-[#A6791E] text-lg" : "font-medium"} ${mono ? "font-mono" : ""}`}>
         {value}
       </span>
     </div>

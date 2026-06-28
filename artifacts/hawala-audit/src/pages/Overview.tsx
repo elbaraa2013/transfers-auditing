@@ -15,7 +15,7 @@ export default function Overview() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'approved': return <Badge className="bg-[#16A34A] hover:bg-[#16A34A]/80">معتمد</Badge>;
+      case 'approved': return <Badge className="bg-[#C9A227] text-[#1C1A17] hover:bg-[#C9A227]/80">معتمد</Badge>;
       case 'pending': return <Badge className="bg-[#D97706] hover:bg-[#D97706]/80">معلق</Badge>;
       case 'rejected': return <Badge className="bg-[#DC2626] hover:bg-[#DC2626]/80">مرفوض</Badge>;
       default: return <Badge>{status}</Badge>;
@@ -24,7 +24,7 @@ export default function Overview() {
 
   const getRiskBadge = (risk: string) => {
     switch (risk) {
-      case 'low': return <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">منخفض</Badge>;
+      case 'low': return <Badge variant="outline" className="text-[#8A6718] border-[#E8D9A8] bg-[#FAF4E3]">منخفض</Badge>;
       case 'medium': return <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">متوسط</Badge>;
       case 'high': return <Badge variant="outline" className="text-red-700 border-red-200 bg-red-50">عالي</Badge>;
       default: return null;
@@ -38,7 +38,7 @@ export default function Overview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">إجمالي الحوالات</CardTitle>
-            <FileText className="w-4 h-4 text-[#0F6E56]" />
+            <FileText className="w-4 h-4 text-[#A6791E]" />
           </CardHeader>
           <CardContent>
             {statsLoading ? <Skeleton className="h-8 w-24" /> : (
@@ -68,12 +68,12 @@ export default function Overview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">الحوالات المعتمدة</CardTitle>
-            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
+            <CheckCircle2 className="w-4 h-4 text-[#A6791E]" />
           </CardHeader>
           <CardContent>
             {statsLoading ? <Skeleton className="h-8 w-24" /> : (
               <>
-                <div className="text-2xl font-bold text-[#16A34A]">{stats?.approved || 0}</div>
+                <div className="text-2xl font-bold text-[#A6791E]">{stats?.approved || 0}</div>
                 <p className="text-xs text-gray-500 mt-1">{stats ? formatMoney(stats.approvedAmount) : '0 ج.س'}</p>
               </>
             )}

@@ -209,7 +209,7 @@ export default function Scan() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#0F6E56] text-white text-sm">1</span>
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#1C1A17] text-white text-sm">1</span>
             اختيار المندوب
           </CardTitle>
         </CardHeader>
@@ -239,7 +239,7 @@ export default function Scan() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#0F6E56] text-white text-sm">2</span>
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#1C1A17] text-white text-sm">2</span>
             رفع إيصالات الحوالة
           </CardTitle>
         </CardHeader>
@@ -249,7 +249,7 @@ export default function Scan() {
               !agentSelected
                 ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
                 : isDragging
-                ? "border-[#0F6E56] bg-emerald-50 cursor-pointer"
+                ? "border-[#A6791E] bg-[#FAF4E3] cursor-pointer"
                 : "border-gray-300 hover:bg-gray-50 cursor-pointer"
             }`}
             onDragOver={(e) => {
@@ -277,7 +277,7 @@ export default function Scan() {
           {items.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button
-                className="bg-[#0F6E56] hover:bg-[#0b5341]"
+                className="bg-[#1C1A17] hover:bg-[#33302A]"
                 onClick={scanAll}
                 disabled={queuedCount === 0 || isBusy}
               >
@@ -289,7 +289,7 @@ export default function Scan() {
                 مسح الكل ({queuedCount})
               </Button>
               <Button
-                className="bg-[#16A34A] hover:bg-[#15803d]"
+                className="bg-[#C9A227] hover:bg-[#B8902F] text-[#1C1A17]"
                 onClick={registerAll}
                 disabled={readyCount === 0 || isBusy}
               >
@@ -341,7 +341,7 @@ export default function Scan() {
                           {item.status === "scanned" && missing.length === 0 && (
                             <Button
                               size="sm"
-                              className="bg-[#16A34A] hover:bg-[#15803d]"
+                              className="bg-[#C9A227] hover:bg-[#B8902F] text-[#1C1A17]"
                               onClick={() => registerItemAndRefresh(item)}
                               disabled={isBusy}
                             >
@@ -449,7 +449,7 @@ function EditableField({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         placeholder={placeholder}
-        className="font-medium text-right outline-none bg-transparent border-b border-dashed border-gray-300 focus:border-[#0F6E56] min-w-0 flex-1 text-sm placeholder:text-gray-300 placeholder:font-normal disabled:border-transparent"
+        className="font-medium text-right outline-none bg-transparent border-b border-dashed border-gray-300 focus:border-[#A6791E] min-w-0 flex-1 text-sm placeholder:text-gray-300 placeholder:font-normal disabled:border-transparent"
       />
     </div>
   );
@@ -473,11 +473,11 @@ function StatusBadge({ status }: { status: ItemStatus }) {
     case "scanning":
       return <Badge variant="outline" className="text-blue-700 bg-blue-50 border-blue-200">جارٍ المسح</Badge>;
     case "scanned":
-      return <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">تم المسح</Badge>;
+      return <Badge variant="outline" className="text-[#8A6718] bg-[#FAF4E3] border-[#E8D9A8]">تم المسح</Badge>;
     case "registering":
       return <Badge variant="outline" className="text-blue-700 bg-blue-50 border-blue-200">جارٍ التسجيل</Badge>;
     case "registered":
-      return <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200">تم التسجيل</Badge>;
+      return <Badge variant="outline" className="text-[#8A6718] bg-[#FAF4E3] border-[#E8D9A8]">تم التسجيل</Badge>;
     case "error":
       return <Badge variant="outline" className="text-red-700 bg-red-50 border-red-200">خطأ</Badge>;
   }

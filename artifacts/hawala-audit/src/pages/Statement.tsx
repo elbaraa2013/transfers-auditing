@@ -222,7 +222,7 @@ export default function Statement() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case TransferStatus.approved: return <Badge className="bg-[#16A34A]">معتمد</Badge>;
+      case TransferStatus.approved: return <Badge className="bg-[#C9A227] text-[#1C1A17] hover:bg-[#C9A227]">معتمد</Badge>;
       case TransferStatus.pending: return <Badge className="bg-[#D97706]">معلق</Badge>;
       case TransferStatus.rejected: return <Badge className="bg-[#DC2626]">مرفوض</Badge>;
       default: return <Badge>{status}</Badge>;
@@ -244,7 +244,7 @@ export default function Statement() {
         {/* ===== Per-agent statement ===== */}
         <TabsContent value="statement" className="space-y-6 print-area">
           <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-lg border shadow-sm no-print">
-            <BookOpen className="w-6 h-6 text-[#0F6E56] flex-shrink-0" />
+            <BookOpen className="w-6 h-6 text-[#A6791E] flex-shrink-0" />
             <div className="w-full md:w-80">
               <Select value={selectedAgentId?.toString()} onValueChange={(v) => setSelectedAgentId(parseInt(v))}>
                 <SelectTrigger>
@@ -260,7 +260,7 @@ export default function Statement() {
             <div className="flex gap-2 md:mr-auto w-full md:w-auto">
               <Dialog open={addOpen} onOpenChange={setAddOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-[#0F6E56] hover:bg-[#0b5341] flex-1 md:flex-none">
+                  <Button className="bg-[#1C1A17] hover:bg-[#33302A] flex-1 md:flex-none">
                     <UserPlus className="w-4 h-4 ml-2" /> إضافة مندوب
                   </Button>
                 </DialogTrigger>
@@ -282,7 +282,7 @@ export default function Statement() {
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setAddOpen(false)}>إلغاء</Button>
                     <Button
-                      className="bg-[#0F6E56] hover:bg-[#0b5341]"
+                      className="bg-[#1C1A17] hover:bg-[#33302A]"
                       onClick={() => createAgentMutation.mutate({ data: { name: newName.trim(), phone: newPhone.trim() } })}
                       disabled={createAgentMutation.isPending || !newName.trim() || !newPhone.trim()}
                     >
@@ -320,7 +320,7 @@ export default function Statement() {
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setEditOpen(false)}>إلغاء</Button>
                     <Button
-                      className="bg-[#0F6E56] hover:bg-[#0b5341]"
+                      className="bg-[#1C1A17] hover:bg-[#33302A]"
                       onClick={() => selectedAgentId && updateAgentMutation.mutate({ id: selectedAgentId, data: { name: editName.trim(), phone: editPhone.trim() } })}
                       disabled={updateAgentMutation.isPending || !editName.trim() || !editPhone.trim()}
                     >
@@ -360,14 +360,14 @@ export default function Statement() {
             </div>
           ) : statement ? (
             <div className="space-y-6">
-              <Card className="bg-[#0F6E56] text-white border-none shadow-md">
+              <Card className="bg-[#1C1A17] text-white border-none shadow-md">
                 <CardContent className="p-6 flex flex-col md:flex-row justify-between items-center gap-4">
                   <div>
                     <h2 className="text-2xl font-bold">{statement.agent.name}</h2>
-                    <p className="text-emerald-100 mt-1" dir="ltr">{statement.agent.phone}</p>
+                    <p className="text-[#E8D9A8] mt-1" dir="ltr">{statement.agent.phone}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-emerald-100 text-sm mb-1">الرصيد الحالي (المعتمد)</p>
+                    <p className="text-[#E8D9A8] text-sm mb-1">الرصيد الحالي (المعتمد)</p>
                     <p className="text-3xl font-bold bg-white/20 px-4 py-2 rounded-md backdrop-blur-sm">
                       {formatCurrency(statement.balance)}
                     </p>
@@ -405,11 +405,11 @@ export default function Statement() {
                     <p className="text-sm text-gray-500 mt-1">{formatCurrency(periodSummary.totalAmount)}</p>
                   </CardContent>
                 </Card>
-                <Card className="border-green-100">
+                <Card className="border-[#EAD9B0]">
                   <CardContent className="p-4">
-                    <p className="text-sm text-green-700">المعتمدة</p>
-                    <p className="text-2xl font-bold text-green-700 mt-1">{periodSummary.approvedCount}</p>
-                    <p className="text-sm text-green-600 mt-1">{formatCurrency(periodSummary.approvedAmount)}</p>
+                    <p className="text-sm text-[#8A6718]">المعتمدة</p>
+                    <p className="text-2xl font-bold text-[#8A6718] mt-1">{periodSummary.approvedCount}</p>
+                    <p className="text-sm text-[#A6791E] mt-1">{formatCurrency(periodSummary.approvedAmount)}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-amber-100">
@@ -479,7 +479,7 @@ export default function Statement() {
                                     <>
                                       <Button
                                         size="sm"
-                                        className="bg-[#16A34A] hover:bg-[#15803d] text-white h-8"
+                                        className="bg-[#C9A227] hover:bg-[#B8902F] text-[#1C1A17] h-8"
                                         onClick={() => approveMutation.mutate({ id: transfer.id })}
                                         disabled={approveMutation.isPending || rejectMutation.isPending}
                                       >
@@ -590,7 +590,7 @@ export default function Statement() {
                             <TableCell className="font-medium">{row.agentName}</TableCell>
                             <TableCell className="text-center">{row.totalCount}</TableCell>
                             <TableCell className="font-bold text-gray-900">{formatCurrency(row.totalAmount)}</TableCell>
-                            <TableCell className="text-green-700">{formatCurrency(row.approvedAmount)}</TableCell>
+                            <TableCell className="text-[#8A6718]">{formatCurrency(row.approvedAmount)}</TableCell>
                             <TableCell className="text-amber-700">{formatCurrency(row.pendingAmount)}</TableCell>
                             <TableCell className="text-red-700">{formatCurrency(row.rejectedAmount)}</TableCell>
                           </TableRow>
@@ -599,11 +599,11 @@ export default function Statement() {
                     </TableBody>
                     {agentsSummary && agentsSummary.agents.length > 0 && (
                       <tfoot>
-                        <TableRow className="bg-[#0F6E56]/5 font-bold border-t-2 border-[#0F6E56]/20">
+                        <TableRow className="bg-[#1C1A17]/5 font-bold border-t-2 border-[#A6791E]/20">
                           <TableCell className="font-bold">الإجمالي العام</TableCell>
                           <TableCell className="text-center">{agentsSummary.totals.totalCount}</TableCell>
-                          <TableCell className="font-bold text-[#0F6E56]">{formatCurrency(agentsSummary.totals.totalAmount)}</TableCell>
-                          <TableCell className="text-green-700">{formatCurrency(agentsSummary.totals.approvedAmount)}</TableCell>
+                          <TableCell className="font-bold text-[#A6791E]">{formatCurrency(agentsSummary.totals.totalAmount)}</TableCell>
+                          <TableCell className="text-[#8A6718]">{formatCurrency(agentsSummary.totals.approvedAmount)}</TableCell>
                           <TableCell className="text-amber-700">{formatCurrency(agentsSummary.totals.pendingAmount)}</TableCell>
                           <TableCell className="text-red-700">{formatCurrency(agentsSummary.totals.rejectedAmount)}</TableCell>
                         </TableRow>
@@ -638,7 +638,7 @@ export default function Statement() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setChangeAgentFor(null)}>إلغاء</Button>
             <Button
-              className="bg-[#0F6E56] hover:bg-[#0b5341]"
+              className="bg-[#1C1A17] hover:bg-[#33302A]"
               onClick={handleConfirmChangeAgent}
               disabled={changeAgentMutation.isPending || !changeAgentTarget}
             >

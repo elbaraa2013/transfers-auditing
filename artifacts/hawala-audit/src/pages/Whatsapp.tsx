@@ -77,11 +77,11 @@ export default function Whatsapp() {
             filteredConversations?.map((conv) => (
               <div 
                 key={conv.agentId}
-                className={`flex items-start gap-3 p-4 border-b border-gray-100 cursor-pointer transition-colors ${selectedAgentId === conv.agentId ? 'bg-emerald-50' : 'hover:bg-gray-100'}`}
+                className={`flex items-start gap-3 p-4 border-b border-gray-100 cursor-pointer transition-colors ${selectedAgentId === conv.agentId ? 'bg-[#FAF4E3]' : 'hover:bg-gray-100'}`}
                 onClick={() => setSelectedAgentId(conv.agentId)}
               >
                 <Avatar className="w-12 h-12 border border-gray-200">
-                  <AvatarFallback className="bg-[#0F6E56] text-white">
+                  <AvatarFallback className="bg-[#1C1A17] text-white">
                     {conv.agentName.substring(0, 2)}
                   </AvatarFallback>
                 </Avatar>
@@ -95,7 +95,7 @@ export default function Whatsapp() {
                   <div className="flex justify-between items-center">
                     <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
                     {conv.unreadCount > 0 && (
-                      <span className="bg-[#16A34A] text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
+                      <span className="bg-[#C9A227] text-[#1C1A17] text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
                         {conv.unreadCount}
                       </span>
                     )}
@@ -119,20 +119,20 @@ export default function Whatsapp() {
           </div>
         ) : loadingMessages ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-[#0F6E56] border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-[#A6791E] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <>
             {/* Chat Header */}
             <div className="h-16 px-6 bg-white border-b border-gray-200 flex items-center gap-3 shadow-sm z-10 relative">
               <Avatar className="w-10 h-10">
-                <AvatarFallback className="bg-[#0F6E56] text-white">
+                <AvatarFallback className="bg-[#1C1A17] text-white">
                   {selectedAgentName?.substring(0, 2) || "م"}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <h3 className="font-semibold text-gray-900">{selectedAgentName}</h3>
-                <p className="text-xs text-green-600">متصل</p>
+                <p className="text-xs text-[#A6791E]">متصل</p>
               </div>
             </div>
 
@@ -150,7 +150,7 @@ export default function Whatsapp() {
                             <Button 
                               size="sm" 
                               variant="secondary" 
-                              className="w-full mt-2 bg-[#0F6E56]/10 hover:bg-[#0F6E56]/20 text-[#0F6E56] font-semibold"
+                              className="w-full mt-2 bg-[#FAF4E3] hover:bg-[#F3E8C8] text-[#6E5410] border border-[#EAD9B0] font-semibold"
                               onClick={() => handleScanImage(msg.imageUrl!)}
                             >
                               <ImageIcon className="w-4 h-4 ml-2" />
@@ -173,12 +173,12 @@ export default function Whatsapp() {
 
             {/* Input Area */}
             <div className="p-4 bg-gray-50 border-t border-gray-200">
-              <div className="flex gap-2 items-center bg-white p-2 rounded-full border border-gray-300 shadow-sm focus-within:border-[#0F6E56] focus-within:ring-1 focus-within:ring-[#0F6E56]">
+              <div className="flex gap-2 items-center bg-white p-2 rounded-full border border-gray-300 shadow-sm focus-within:border-[#A6791E] focus-within:ring-1 focus-within:ring-[#A6791E]">
                 <Input 
                   placeholder="اكتب رسالة..." 
                   className="flex-1 border-none shadow-none focus-visible:ring-0 bg-transparent px-4"
                 />
-                <Button size="icon" className="rounded-full bg-[#0F6E56] hover:bg-[#0b5341] flex-shrink-0">
+                <Button size="icon" className="rounded-full bg-[#1C1A17] hover:bg-[#33302A] flex-shrink-0">
                   <Send className="w-4 h-4 mr-1" />
                 </Button>
               </div>

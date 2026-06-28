@@ -104,7 +104,7 @@ export default function Transfers() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case TransferStatus.approved: return <Badge className="bg-[#16A34A]">معتمد</Badge>;
+      case TransferStatus.approved: return <Badge className="bg-[#C9A227] text-[#1C1A17] hover:bg-[#C9A227]">معتمد</Badge>;
       case TransferStatus.pending: return <Badge className="bg-[#D97706]">معلق</Badge>;
       case TransferStatus.rejected: return <Badge className="bg-[#DC2626]">مرفوض</Badge>;
       default: return <Badge>{status}</Badge>;
@@ -113,7 +113,7 @@ export default function Transfers() {
 
   const getRiskBadge = (risk: string) => {
     switch (risk) {
-      case TransferRiskLevel.low: return <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">منخفض</Badge>;
+      case TransferRiskLevel.low: return <Badge variant="outline" className="text-[#8A6718] border-[#E8D9A8] bg-[#FAF4E3]">منخفض</Badge>;
       case TransferRiskLevel.medium: return <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">متوسط</Badge>;
       case TransferRiskLevel.high: return <Badge variant="outline" className="text-red-700 border-red-200 bg-red-50">عالي</Badge>;
       default: return null;
@@ -213,7 +213,7 @@ export default function Transfers() {
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              className="text-green-700 hover:text-green-800 hover:bg-green-50 border-green-200"
+                              className="text-[#8A6718] hover:text-[#6E5410] hover:bg-[#FAF4E3] border-[#E8D9A8]"
                               onClick={() => handleApprove(transfer.id)}
                               disabled={approveMutation.isPending || rejectMutation.isPending}
                             >
@@ -301,7 +301,7 @@ export default function Transfers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setChangeAgentFor(null)}>إلغاء</Button>
             <Button
-              className="bg-[#0F6E56] hover:bg-[#0b5341]"
+              className="bg-[#1C1A17] hover:bg-[#33302A]"
               onClick={handleConfirmChangeAgent}
               disabled={changeAgentMutation.isPending || !changeAgentTarget}
             >
