@@ -7,9 +7,11 @@ import {
   useApproveTransfer,
   useRejectTransfer,
   useChangeTransferAgent,
+  useDeleteTransfer,
   TransferStatus,
   TransferRiskLevel,
-  ListTransfersStatus
+  ListTransfersStatus,
+  type Transfer
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,10 +20,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Check, X, Lock, Search, Printer, ArrowRightLeft } from "lucide-react";
+import { Check, X, Lock, Search, Printer, ArrowRightLeft, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Transfers() {
@@ -32,6 +44,7 @@ export default function Transfers() {
   const [rejectReason, setRejectReason] = useState("");
   const [changeAgentFor, setChangeAgentFor] = useState<number | null>(null);
   const [changeAgentTarget, setChangeAgentTarget] = useState<string>("");
+  const [deleteTarget, setDeleteTarget] = useState<Transfer | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -82,6 +95,20 @@ export default function Transfers() {
       },
       onError: (err: any) => {
         toast({ title: "خطأ", description: err?.message || "تعذّر تغيير المندوب", variant: "destructive" });
+      }
+    }
+  });
+
+  const deleteMutation = useDeleteTransfer({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListTransfersQueryKey() });
+        toast({ title: "تم الحذف", description: "تم حذف العملية بنجاح" });
+        setDeleteTarget(null);
+      },
+      onError: (err: any) => {
+        toast({ title: "تعذّر الحذف", description: err?.message || "حدث خطأ أثناء حذف العملية", variant: "destructive" });
+        setDeleteTarget(null);
       }
     }
   });
@@ -237,12 +264,35 @@ export default function Transfers() {
                             >
                               <ArrowRightLeft className="w-4 h-4" />
                             </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-gray-500 hover:text-red-700 hover:bg-red-50 border-gray-200"
+                              onClick={() => setDeleteTarget(transfer)}
+                              disabled={deleteMutation.isPending}
+                              title="حذف العملية"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         ) : transfer.status === TransferStatus.approved ? (
                           <div className="flex items-center justify-center text-gray-400">
                             <Lock className="w-4 h-4" />
                           </div>
-                        ) : null}
+                        ) : (
+                          <div className="flex items-center justify-center">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-gray-500 hover:text-red-700 hover:bg-red-50 border-gray-200"
+                              onClick={() => setDeleteTarget(transfer)}
+                              disabled={deleteMutation.isPending}
+                              title="حذف العملية"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -310,6 +360,30 @@ export default function Transfers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف العملية</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف الحوالة رقم{" "}
+              <span className="font-mono font-bold">{deleteTarget?.operationNumber}</span>؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteTarget) deleteMutation.mutate({ id: deleteTarget.id });
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

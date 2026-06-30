@@ -1,20 +1,34 @@
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   useListPendingTransfers, 
   getListPendingTransfersQueryKey,
   useApproveTransfer,
-  useRejectTransfer
+  useRejectTransfer,
+  useDeleteTransfer,
+  type Transfer
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Check, X, AlertTriangle } from "lucide-react";
+import { Check, X, AlertTriangle, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Matching() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [deleteTarget, setDeleteTarget] = useState<Transfer | null>(null);
   
   const { data: transfers, isLoading } = useListPendingTransfers();
 
@@ -38,6 +52,20 @@ export default function Matching() {
       },
       onError: (err: any) => {
         toast({ title: "خطأ", description: err?.message || "حدث خطأ أثناء الرفض", variant: "destructive" });
+      }
+    }
+  });
+
+  const deleteMutation = useDeleteTransfer({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPendingTransfersQueryKey() });
+        toast({ title: "تم الحذف", description: "تم حذف العملية بنجاح" });
+        setDeleteTarget(null);
+      },
+      onError: (err: any) => {
+        toast({ title: "تعذّر الحذف", description: err?.message || "حدث خطأ أثناء حذف العملية", variant: "destructive" });
+        setDeleteTarget(null);
       }
     }
   });
@@ -130,12 +158,45 @@ export default function Matching() {
                       رفض
                     </Button>
                   </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full mt-3 text-gray-500 hover:text-red-700 hover:bg-red-50 h-9 text-sm"
+                    onClick={() => setDeleteTarget(transfer)}
+                    disabled={approveMutation.isPending || rejectMutation.isPending || deleteMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4 ml-2" />
+                    حذف العملية
+                  </Button>
                 </CardContent>
               </Card>
             );
           })}
         </div>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف العملية</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف الحوالة رقم{" "}
+              <span className="font-mono font-bold">{deleteTarget?.operationNumber}</span>؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteTarget) deleteMutation.mutate({ id: deleteTarget.id });
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { transfersTable, agentsTable } from "@workspace/db";
-import { eq, desc, and, type SQL } from "drizzle-orm";
+import { eq, ne, desc, and, type SQL } from "drizzle-orm";
 
 const router = Router();
 
@@ -88,20 +88,31 @@ router.post("/transfers", async (req, res) => {
   const score = Number(riskScore ?? 0);
   const riskLevel = getRiskLevel(score);
 
-  const [created] = await db.insert(transfersTable).values({
-    ownerId,
-    operationNumber,
-    amount: String(amount),
-    fromAccount: fromAccount ?? null,
-    toAccount: toAccount ?? null,
-    recipientName: recipientName ?? null,
-    comment,
-    agentId,
-    riskScore: score,
-    riskLevel,
-    transferDate,
-    status: "pending",
-  }).returning();
+  let created: typeof transfersTable.$inferSelect;
+  try {
+    [created] = await db.insert(transfersTable).values({
+      ownerId,
+      operationNumber,
+      amount: String(amount),
+      fromAccount: fromAccount ?? null,
+      toAccount: toAccount ?? null,
+      recipientName: recipientName ?? null,
+      comment,
+      agentId,
+      riskScore: score,
+      riskLevel,
+      transferDate,
+      status: "pending",
+    }).returning();
+  } catch (err: any) {
+    // Unique violation: an active (pending/approved) transfer already uses this
+    // operation number for this owner. Rejected numbers are free to reuse.
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "رقم العملية مسجل بالفعل" });
+      return;
+    }
+    throw err;
+  }
 
   // Update agent last activity
   await db.update(agentsTable).set({ lastActivityAt: new Date() }).where(and(eq(agentsTable.id, agentId), eq(agentsTable.ownerId, ownerId)));
@@ -257,27 +268,28 @@ router.delete("/transfers/:id", async (req, res) => {
 router.patch("/transfers/:id/approve", async (req, res) => {
   const ownerId = req.userId!;
   const id = parseInt(req.params.id);
-  const rows = await db
-    .select()
-    .from(transfersTable)
-    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
-    .limit(1);
 
-  if (!rows.length) {
-    res.status(404).json({ error: "الحوالة غير موجودة" });
-    return;
-  }
-
-  if (rows[0].status === "approved") {
-    res.status(409).json({ error: "الحوالة مقفلة بالفعل" });
-    return;
-  }
-
+  // Atomic guard: only approve a transfer that isn't already approved, so a
+  // concurrent delete or status change can't crash this handler (TOCTOU).
   const [updated] = await db
     .update(transfersTable)
     .set({ status: "approved" })
-    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId), ne(transfersTable.status, "approved")))
     .returning();
+
+  if (!updated) {
+    const existing = await db
+      .select({ id: transfersTable.id })
+      .from(transfersTable)
+      .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
+      .limit(1);
+    if (!existing.length) {
+      res.status(404).json({ error: "الحوالة غير موجودة" });
+      return;
+    }
+    res.status(409).json({ error: "الحوالة مقفلة بالفعل" });
+    return;
+  }
 
   const agent = await db.select().from(agentsTable).where(and(eq(agentsTable.id, updated.agentId), eq(agentsTable.ownerId, ownerId))).limit(1);
   res.json(await buildTransferResponse(updated, agent[0]?.name ?? ""));
@@ -336,29 +348,29 @@ router.patch("/transfers/:id/agent", async (req, res) => {
 router.patch("/transfers/:id/reject", async (req, res) => {
   const ownerId = req.userId!;
   const id = parseInt(req.params.id);
-  const rows = await db
-    .select()
-    .from(transfersTable)
-    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
-    .limit(1);
-
-  if (!rows.length) {
-    res.status(404).json({ error: "الحوالة غير موجودة" });
-    return;
-  }
-
-  if (rows[0].status === "approved") {
-    res.status(409).json({ error: "الحوالة مقفلة ولا يمكن رفضها" });
-    return;
-  }
-
   const reason = req.body?.reason ?? null;
 
+  // Atomic guard: only reject a transfer that isn't approved, so a concurrent
+  // delete or status change can't crash this handler (TOCTOU).
   const [updated] = await db
     .update(transfersTable)
     .set({ status: "rejected", rejectionReason: reason })
-    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
+    .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId), ne(transfersTable.status, "approved")))
     .returning();
+
+  if (!updated) {
+    const existing = await db
+      .select({ id: transfersTable.id })
+      .from(transfersTable)
+      .where(and(eq(transfersTable.id, id), eq(transfersTable.ownerId, ownerId)))
+      .limit(1);
+    if (!existing.length) {
+      res.status(404).json({ error: "الحوالة غير موجودة" });
+      return;
+    }
+    res.status(409).json({ error: "الحوالة مقفلة ولا يمكن رفضها" });
+    return;
+  }
 
   const agent = await db.select().from(agentsTable).where(and(eq(agentsTable.id, updated.agentId), eq(agentsTable.ownerId, ownerId))).limit(1);
   res.json(await buildTransferResponse(updated, agent[0]?.name ?? ""));

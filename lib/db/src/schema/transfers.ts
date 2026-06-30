@@ -1,4 +1,5 @@
 import { pgTable, serial, text, numeric, timestamp, integer, real, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { agentsTable } from "./agents";
@@ -24,8 +25,12 @@ export const transfersTable = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
-    // Operation numbers are unique per account, not globally.
-    uniqueIndex("transfers_owner_operation_idx").on(table.ownerId, table.operationNumber),
+    // Operation numbers are unique per account, not globally. Rejected transfers
+    // are excluded from the uniqueness check so a rejected operation number is
+    // freed up and can be registered again.
+    uniqueIndex("transfers_owner_operation_idx")
+      .on(table.ownerId, table.operationNumber)
+      .where(sql`${table.status} <> 'rejected'`),
     index("transfers_owner_idx").on(table.ownerId),
   ],
 );
