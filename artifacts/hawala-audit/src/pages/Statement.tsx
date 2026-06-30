@@ -367,9 +367,11 @@ export default function Statement() {
                     <p className="text-[#E8D9A8] mt-1" dir="ltr">{statement.agent.phone}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[#E8D9A8] text-sm mb-1">الرصيد الحالي (المعتمد)</p>
+                    <p className="text-[#E8D9A8] text-sm mb-1">
+                      {isFiltered ? "إجمالي المعتمد (الفترة)" : "الرصيد الحالي (المعتمد)"}
+                    </p>
                     <p className="text-3xl font-bold bg-white/20 px-4 py-2 rounded-md backdrop-blur-sm">
-                      {formatCurrency(statement.balance)}
+                      {formatCurrency(isFiltered ? periodSummary.approvedAmount : statement.balance)}
                     </p>
                   </div>
                 </CardContent>
