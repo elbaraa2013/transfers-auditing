@@ -3,3 +3,4 @@
 - [drizzle partial index push gotcha](drizzle-partial-index.md) — drizzle-kit push ignores a unique index's .where() predicate; apply partial indexes manually on dev DB.
 - [Orval codegen collision](orval-codegen-conflicts.md) — never add query params to a path-param endpoint; emits duplicate `<Op>Params` → TS2308 in api-zod barrel.
 - [Transfer response shape](transfer-response-shape.md) — Transfer object built in 2 places (transfers.ts buildTransferResponse + agents.ts statement map); new fields go in both.
+- [Transfer business-date key](business-date-key.md) — reporting date = transferDate else createdAt, as UTC YYYY-MM-DD; computed in client Statement + server /agents/summary, keep in sync.

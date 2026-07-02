@@ -1,9 +1,24 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { agentsTable, transfersTable, insertAgentSchema } from "@workspace/db";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const router = Router();
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const ymdUTC = (d: Date) =>
+  `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+
+// The business date of a transfer is its (OCR-parsed or manually entered)
+// transferDate. Fall back to the system createdAt only when transferDate is
+// missing or unparseable. Returned as a YYYY-MM-DD string for range compare.
+function transferDateKey(t: typeof transfersTable.$inferSelect): string {
+  if (t.transferDate) {
+    const d = new Date(t.transferDate);
+    if (!isNaN(d.getTime())) return ymdUTC(d);
+  }
+  return ymdUTC(t.createdAt);
+}
 
 // The agent balance is the total value of approved (settled) transfers they
 // handled. It is always computed from transfers, never read from a stored
@@ -119,30 +134,23 @@ router.get("/agents/summary", async (req, res) => {
     .where(eq(agentsTable.ownerId, ownerId))
     .orderBy(agentsTable.name);
 
-  const conditions = [eq(transfersTable.ownerId, ownerId)];
-  if (fromParam) {
-    const f = new Date(fromParam);
-    if (!isNaN(f.getTime())) {
-      const start = new Date(
-        Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate(), 0, 0, 0, 0),
-      );
-      conditions.push(gte(transfersTable.createdAt, start));
-    }
-  }
-  if (toParam) {
-    const t = new Date(toParam);
-    if (!isNaN(t.getTime())) {
-      const end = new Date(
-        Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), 23, 59, 59, 999),
-      );
-      conditions.push(lte(transfersTable.createdAt, end));
-    }
-  }
+  const from = fromParam && !isNaN(new Date(fromParam).getTime()) ? fromParam : "";
+  const to = toParam && !isNaN(new Date(toParam).getTime()) ? toParam : "";
 
-  const transfers = await db
+  // Filter by the transfer's business date (transferDate, falling back to
+  // createdAt), NOT the row's createdAt — so a receipt registered today for a
+  // transfer dated last week counts in last week's period.
+  const allTransfers = await db
     .select()
     .from(transfersTable)
-    .where(and(...conditions));
+    .where(eq(transfersTable.ownerId, ownerId));
+
+  const transfers = allTransfers.filter((t) => {
+    const key = transferDateKey(t);
+    if (from && key < from) return false;
+    if (to && key > to) return false;
+    return true;
+  });
 
   const rows = agents.map((a) => {
     const ts = transfers.filter((t) => t.agentId === a.id);

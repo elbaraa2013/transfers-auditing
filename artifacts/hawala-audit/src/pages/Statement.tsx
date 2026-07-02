@@ -39,16 +39,21 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Lock, UserPlus, Printer, ArrowRightLeft, Trash2, Users, Pencil } from "lucide-react";
 
-// The date used for range filtering must match the date shown in the table:
-// prefer the (OCR-parsed) transferDate when it's a valid date, otherwise fall
-// back to the reliable system createdAt. Compared in local time (en-CA →
-// YYYY-MM-DD) so it lines up with the <input type="date"> values.
+// The date used for range filtering: prefer the (OCR-parsed / manually entered)
+// transferDate when valid, otherwise fall back to the system createdAt. Computed
+// as a UTC YYYY-MM-DD so it matches the server's /agents/summary date key
+// exactly — statement and all-agents summaries must agree at date boundaries.
+function ymdUTC(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
 function effectiveDateKey(t: Transfer): string {
   if (t.transferDate) {
     const parsed = new Date(t.transferDate);
-    if (!isNaN(parsed.getTime())) return parsed.toLocaleDateString("en-CA");
+    if (!isNaN(parsed.getTime())) return ymdUTC(parsed);
   }
-  return new Date(t.createdAt).toLocaleDateString("en-CA");
+  return ymdUTC(new Date(t.createdAt));
 }
 
 function computeSummary(transfers: Transfer[]) {

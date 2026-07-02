@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { UploadCloud, Image as ImageIcon, AlertCircle, CheckCircle2, X, ScanLine, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -38,6 +38,30 @@ function missingFieldsOf(result: ScanResult | null): string[] {
   ].filter(Boolean) as string[];
 }
 
+const MONTHS: Record<string, number> = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+};
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// Normalize any OCR-parsed date string (e.g. "29-Jun-2026 09:02" or an ISO
+// string) into a YYYY-MM-DD value usable by a native <input type="date">.
+// Returns "" when the input can't be understood.
+function toDateInput(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (!isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+  const m = /(\d{1,2})[-/\s]+([A-Za-z]{3,})[-/\s]+(\d{4})/.exec(value);
+  if (m) {
+    const mon = MONTHS[m[2].slice(0, 3).toLowerCase()];
+    if (mon != null) return `${m[3]}-${pad2(mon + 1)}-${pad2(Number(m[1]))}`;
+  }
+  return "";
+}
+
 export default function Scan() {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<number | undefined>();
@@ -59,7 +83,7 @@ export default function Scan() {
 
   const setField = (
     id: string,
-    key: "recipientName" | "fromAccount" | "toAccount",
+    key: "recipientName" | "fromAccount" | "toAccount" | "transferDate",
     value: string,
   ) =>
     setItems((prev) =>
@@ -121,7 +145,8 @@ export default function Scan() {
     patchItem(item.id, { status: "scanning", errorMsg: null });
     try {
       const data = await scanMutation.mutateAsync({ data: { imageBase64: base64Data } });
-      patchItem(item.id, { result: data, status: "scanned" });
+      const result: ScanResult = { ...data, transferDate: toDateInput(data.transferDate) || null };
+      patchItem(item.id, { result, status: "scanned" });
     } catch (error: any) {
       patchItem(item.id, { status: "error", errorMsg: error?.message || "فشل الاتصال بخدمة التحليل" });
     }
@@ -162,7 +187,7 @@ export default function Scan() {
           comment: r.comment || undefined,
           agentId: item.agentId,
           riskScore: r.riskScore,
-          transferDate: r.transferDate ?? undefined,
+          transferDate: r.transferDate?.trim() || undefined,
         },
       });
       patchItem(item.id, { status: "registered" });
@@ -395,9 +420,11 @@ export default function Scan() {
                             placeholder="اكتب الحساب يدوياً..."
                             disabled={item.status === "registering" || item.status === "registered"}
                           />
-                          <Field
+                          <EditableDateField
                             label="التاريخ"
-                            value={item.result.transferDate ? formatDateTime(item.result.transferDate) : null}
+                            value={item.result.transferDate}
+                            onChange={(v) => setField(item.id, "transferDate", v)}
+                            disabled={item.status === "registering" || item.status === "registered"}
                           />
                         </div>
                       ) : item.status === "scanning" ? (
@@ -450,6 +477,31 @@ function EditableField({
         disabled={disabled}
         placeholder={placeholder}
         className="font-medium text-right outline-none bg-transparent border-b border-dashed border-gray-300 focus:border-[#A6791E] min-w-0 flex-1 text-sm placeholder:text-gray-300 placeholder:font-normal disabled:border-transparent"
+      />
+    </div>
+  );
+}
+
+function EditableDateField({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value?: string | null;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-center gap-2 border-b border-gray-100 pb-1">
+      <span className="text-gray-500 flex-shrink-0">{label}</span>
+      <input
+        type="date"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="font-medium text-right outline-none bg-transparent border-b border-dashed border-gray-300 focus:border-[#A6791E] min-w-0 flex-1 text-sm disabled:border-transparent"
       />
     </div>
   );
