@@ -228,7 +228,7 @@ export default function Transfers() {
                   transfers?.map((transfer) => (
                     <TableRow key={transfer.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium font-mono text-sm">{transfer.operationNumber}</TableCell>
-                      <TableCell>{formatDate(transfer.createdAt)}</TableCell>
+                      <TableCell>{formatDate(transfer.transferDate || transfer.createdAt)}</TableCell>
                       <TableCell>{transfer.agentName}</TableCell>
                       <TableCell>{transfer.recipientName || "—"}</TableCell>
                       <TableCell className="font-bold">{formatCurrency(transfer.amount)}</TableCell>

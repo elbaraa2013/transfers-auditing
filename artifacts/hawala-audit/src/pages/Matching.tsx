@@ -124,7 +124,7 @@ export default function Matching() {
                     <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600 border border-gray-200">
                       {transfer.operationNumber}
                     </span>
-                    <span className="text-xs text-gray-500">{formatDate(transfer.createdAt)}</span>
+                    <span className="text-xs text-gray-500">{formatDate(transfer.transferDate || transfer.createdAt)}</span>
                   </div>
                   
                   <div className="mb-6">
