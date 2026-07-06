@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "58J8wUX3JKisrkx1MXISN"
+uri = "file://docs/mobile-app-spec.md"
+type = "text"
+title = "مواصفات تطبيق الموبايل — نظام تدقيق الحوالات"
