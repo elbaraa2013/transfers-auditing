@@ -5,6 +5,7 @@ import { type Href, Link, useRouter } from 'expo-router'
 import React from 'react'
 import { Pressable, StyleSheet, TextInput, View } from 'react-native'
 import { useColors } from '@/hooks/useColors'
+import { clerkErrMsg } from '@/lib/format'
 
 export default function Page() {
   const { signIn, errors, fetchStatus } = useSignIn()
@@ -14,44 +15,59 @@ export default function Page() {
   const [emailAddress, setEmailAddress] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [code, setCode] = React.useState('')
+  const [formError, setFormError] = React.useState<string | null>(null)
 
   const handleSubmit = async () => {
     if (!signIn) return
+    setFormError(null)
     const { error } = await signIn.password({
-      emailAddress,
+      emailAddress: emailAddress.trim(),
       password,
     })
     if (error) {
-      console.error(JSON.stringify(error, null, 2))
+      setFormError(clerkErrMsg(error, 'تعذّر تسجيل الدخول. تأكد من البيانات وأعد المحاولة.'))
       return
     }
 
-    if (signIn.status === 'complete') {
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          router.replace('/')
-        },
-      })
-    } else if (signIn.status === 'needs_client_trust') {
-      const emailCodeFactor = signIn.supportedSecondFactors.find(
-        (factor) => factor.strategy === 'email_code',
-      )
-      if (emailCodeFactor) {
-        await signIn.mfa.sendEmailCode()
+    try {
+      if (signIn.status === 'complete') {
+        await signIn.finalize({
+          navigate: ({ session, decorateUrl }) => {
+            router.replace('/')
+          },
+        })
+      } else if (signIn.status === 'needs_client_trust') {
+        const emailCodeFactor = signIn.supportedSecondFactors.find(
+          (factor) => factor.strategy === 'email_code',
+        )
+        if (emailCodeFactor) {
+          await signIn.mfa.sendEmailCode()
+        }
       }
+    } catch (e) {
+      setFormError(clerkErrMsg(e, 'تعذّر إكمال تسجيل الدخول. أعد المحاولة.'))
     }
   }
 
   const handleVerify = async () => {
     if (!signIn) return
-    await signIn.mfa.verifyEmailCode({ code })
+    setFormError(null)
+    try {
+      const { error } = await signIn.mfa.verifyEmailCode({ code })
+      if (error) {
+        setFormError(clerkErrMsg(error, 'رمز التحقق غير صحيح. أعد المحاولة.'))
+        return
+      }
 
-    if (signIn.status === 'complete') {
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          router.replace('/')
-        },
-      })
+      if (signIn.status === 'complete') {
+        await signIn.finalize({
+          navigate: ({ session, decorateUrl }) => {
+            router.replace('/')
+          },
+        })
+      }
+    } catch (e) {
+      setFormError(clerkErrMsg(e, 'رمز التحقق غير صحيح. أعد المحاولة.'))
     }
   }
 
@@ -115,6 +131,7 @@ export default function Page() {
         <ThemedText type="title" style={styles.title}>
           تأكيد الحساب
         </ThemedText>
+        {formError ? <ThemedText style={styles.error}>{formError}</ThemedText> : null}
         <TextInput
           style={styles.input}
           value={code}
@@ -139,6 +156,8 @@ export default function Page() {
       <ThemedText type="title" style={styles.title}>
         تسجيل الدخول
       </ThemedText>
+
+      {formError ? <ThemedText style={styles.error}>{formError}</ThemedText> : null}
 
       <ThemedText style={styles.label}>البريد الإلكتروني</ThemedText>
       <TextInput

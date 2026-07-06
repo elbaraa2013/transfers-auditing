@@ -5,6 +5,7 @@ import { type Href, Link, useRouter } from 'expo-router'
 import React from 'react'
 import { Pressable, StyleSheet, TextInput, View } from 'react-native'
 import { useColors } from '@/hooks/useColors'
+import { clerkErrMsg } from '@/lib/format'
 
 export default function Page() {
   const { signUp, errors, fetchStatus } = useSignUp()
@@ -15,30 +16,45 @@ export default function Page() {
   const [emailAddress, setEmailAddress] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [code, setCode] = React.useState('')
+  const [formError, setFormError] = React.useState<string | null>(null)
 
   const handleSubmit = async () => {
     if (!signUp) return
+    setFormError(null)
     const { error } = await signUp.password({
-      emailAddress,
+      emailAddress: emailAddress.trim(),
       password,
     })
     if (error) {
-      console.error(JSON.stringify(error, null, 2))
+      setFormError(clerkErrMsg(error, 'تعذّر إنشاء الحساب. تأكد من البيانات وأعد المحاولة.'))
       return
     }
 
-    if (!error) await signUp.verifications.sendEmailCode()
+    try {
+      await signUp.verifications.sendEmailCode()
+    } catch (e) {
+      setFormError(clerkErrMsg(e, 'تعذّر إرسال رمز التحقق. أعد المحاولة.'))
+    }
   }
 
   const handleVerify = async () => {
     if (!signUp) return
-    await signUp.verifications.verifyEmailCode({ code })
-    if (signUp.status === 'complete') {
-      await signUp.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          router.replace('/')
-        },
-      })
+    setFormError(null)
+    try {
+      const { error } = await signUp.verifications.verifyEmailCode({ code })
+      if (error) {
+        setFormError(clerkErrMsg(error, 'رمز التحقق غير صحيح. أعد المحاولة.'))
+        return
+      }
+      if (signUp.status === 'complete') {
+        await signUp.finalize({
+          navigate: ({ session, decorateUrl }) => {
+            router.replace('/')
+          },
+        })
+      }
+    } catch (e) {
+      setFormError(clerkErrMsg(e, 'رمز التحقق غير صحيح. أعد المحاولة.'))
     }
   }
 
@@ -110,6 +126,7 @@ export default function Page() {
         <ThemedText type="title" style={styles.title}>
           تأكيد الحساب
         </ThemedText>
+        {formError ? <ThemedText style={styles.error}>{formError}</ThemedText> : null}
         <TextInput
           style={styles.input}
           value={code}
@@ -134,6 +151,8 @@ export default function Page() {
       <ThemedText type="title" style={styles.title}>
         إنشاء حساب
       </ThemedText>
+
+      {formError ? <ThemedText style={styles.error}>{formError}</ThemedText> : null}
 
       <ThemedText style={styles.label}>البريد الإلكتروني</ThemedText>
       <TextInput

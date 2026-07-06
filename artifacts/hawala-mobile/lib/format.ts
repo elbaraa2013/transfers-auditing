@@ -28,6 +28,29 @@ export function fmtDateTime(iso?: string | null): string {
   });
 }
 
+const clerkErrorMessages: Record<string, string> = {
+  form_identifier_not_found: "لا يوجد حساب بهذا البريد الإلكتروني. أنشئ حساباً جديداً أولاً.",
+  form_password_incorrect: "كلمة المرور غير صحيحة.",
+  form_param_format_invalid: "البريد الإلكتروني غير صالح. تأكد من كتابته بشكل صحيح.",
+  form_identifier_exists: "هذا البريد مسجل مسبقاً. جرّب تسجيل الدخول بدلاً من إنشاء حساب.",
+  form_password_pwned: "كلمة المرور هذه مسربة في اختراقات سابقة. اختر كلمة مرور أخرى.",
+  form_password_length_too_short: "كلمة المرور قصيرة جداً. استخدم 8 أحرف على الأقل.",
+  form_code_incorrect: "رمز التحقق غير صحيح.",
+  verification_expired: "انتهت صلاحية رمز التحقق. أعد المحاولة.",
+  too_many_requests: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة.",
+  session_exists: "أنت مسجل الدخول بالفعل.",
+};
+
+export function clerkErrMsg(e: unknown, fallback = "حدث خطأ. أعد المحاولة."): string {
+  const errors = (e as { errors?: { code?: string; longMessage?: string; message?: string }[] } | null)
+    ?.errors;
+  const first = errors?.[0];
+  if (first?.code && clerkErrorMessages[first.code]) return clerkErrorMessages[first.code];
+  if (first?.longMessage) return first.longMessage;
+  if (first?.message) return first.message;
+  return fallback;
+}
+
 export const statusLabels: Record<string, string> = {
   pending: "قيد المراجعة",
   approved: "مقبولة",
