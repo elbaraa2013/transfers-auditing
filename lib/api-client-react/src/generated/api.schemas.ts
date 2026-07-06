@@ -194,6 +194,74 @@ export interface ScanResult {
   confidence: number;
 }
 
+export type AccountMeRole = typeof AccountMeRole[keyof typeof AccountMeRole];
+
+
+export const AccountMeRole = {
+  none: 'none',
+  main: 'main',
+  sub: 'sub',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AccountMeSubStatus = typeof AccountMeSubStatus[keyof typeof AccountMeSubStatus] | null;
+
+
+export const AccountMeSubStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface AccountMe {
+  role: AccountMeRole;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  subStatus?: AccountMeSubStatus;
+  /** @nullable */
+  ownerEmail?: string | null;
+  /** @nullable */
+  agentId?: number | null;
+  /** @nullable */
+  agentName?: string | null;
+}
+
+export interface RegisterSubInput {
+  /** @minLength 1 */
+  ownerEmail: string;
+}
+
+export type SubRequestStatus = typeof SubRequestStatus[keyof typeof SubRequestStatus];
+
+
+export const SubRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface SubRequest {
+  id: number;
+  subEmail: string;
+  status: SubRequestStatus;
+  /** @nullable */
+  agentId?: number | null;
+  /** @nullable */
+  agentName?: string | null;
+  createdAt: string;
+  /** @nullable */
+  decidedAt?: string | null;
+}
+
+export interface ApproveSubInput {
+  agentId?: number;
+  newAgentName?: string;
+  newAgentPhone?: string;
+}
+
 export interface Conversation {
   agentId: number;
   agentName: string;

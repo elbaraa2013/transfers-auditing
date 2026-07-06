@@ -17,6 +17,8 @@ tags:
     description: مسح الحوالات بالذكاء الاصطناعي
   - name: messages
     description: رسائل واتساب
+  - name: account
+    description: الحسابات الرئيسية والفرعية
 paths:
   /healthz:
     get:
@@ -446,6 +448,120 @@ paths:
                 items:
                   $ref: "#/components/schemas/Message"
 
+  /account/me:
+    get:
+      operationId: getAccountMe
+      tags: [account]
+      summary: الحصول على معلومات الحساب الحالي
+      responses:
+        "200":
+          description: Account info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountMe"
+
+  /account/register-main:
+    post:
+      operationId: registerMainAccount
+      tags: [account]
+      summary: تسجيل كحساب رئيسي
+      responses:
+        "200":
+          description: Registered as main
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountMe"
+        "409":
+          description: Already registered
+
+  /account/register-sub:
+    post:
+      operationId: registerSubAccount
+      tags: [account]
+      summary: تسجيل كحساب فرعي وربطه بحساب رئيسي
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterSubInput"
+      responses:
+        "200":
+          description: Sub request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountMe"
+        "404":
+          description: Main account not found
+        "409":
+          description: Already registered
+
+  /account/sub-requests:
+    get:
+      operationId: listSubRequests
+      tags: [account]
+      summary: قائمة طلبات الحسابات الفرعية (للحساب الرئيسي)
+      responses:
+        "200":
+          description: Sub requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubRequest"
+
+  /account/sub-requests/{id}/approve:
+    patch:
+      operationId: approveSubRequest
+      tags: [account]
+      summary: الموافقة على حساب فرعي وربطه بمندوب
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveSubInput"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubRequest"
+        "404":
+          description: Not found
+
+  /account/sub-requests/{id}/reject:
+    patch:
+      operationId: rejectSubRequest
+      tags: [account]
+      summary: رفض حساب فرعي
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubRequest"
+        "404":
+          description: Not found
+
 components:
   schemas:
     HealthStatus:
@@ -815,6 +931,69 @@ components:
           type: number
         confidence:
           type: number
+
+    AccountMe:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum: [none, main, sub]
+        email:
+          type: ["string", "null"]
+        subStatus:
+          type: ["string", "null"]
+          enum: [pending, approved, rejected, null]
+        ownerEmail:
+          type: ["string", "null"]
+        agentId:
+          type: ["integer", "null"]
+        agentName:
+          type: ["string", "null"]
+
+    RegisterSubInput:
+      type: object
+      required:
+        - ownerEmail
+      properties:
+        ownerEmail:
+          type: string
+          minLength: 1
+
+    SubRequest:
+      type: object
+      required:
+        - id
+        - subEmail
+        - status
+        - createdAt
+      properties:
+        id:
+          type: integer
+        subEmail:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        agentId:
+          type: ["integer", "null"]
+        agentName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        decidedAt:
+          type: ["string", "null"]
+
+    ApproveSubInput:
+      type: object
+      properties:
+        agentId:
+          type: integer
+        newAgentName:
+          type: string
+        newAgentPhone:
+          type: string
 
     Conversation:
       type: object

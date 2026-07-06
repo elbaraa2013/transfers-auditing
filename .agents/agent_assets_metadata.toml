@@ -1,5 +1,10 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "LjtHTiZ2T_H9foNglBCXs"
+uri = "file://artifacts/hawala-mobile/assets/images/icon.png"
+type = "image"
+title = "Hawala App Icon"
 
 [[outputs]]
 id = "58J8wUX3JKisrkx1MXISN"

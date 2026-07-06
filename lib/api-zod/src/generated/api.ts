@@ -458,3 +458,106 @@ export const GetConversationResponseItem = zod.object({
 export const GetConversationResponse = zod.array(GetConversationResponseItem)
 
 
+/**
+ * @summary الحصول على معلومات الحساب الحالي
+ */
+export const GetAccountMeResponse = zod.object({
+  "role": zod.enum(['none', 'main', 'sub']),
+  "email": zod.string().nullish(),
+  "subStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "agentId": zod.number().nullish(),
+  "agentName": zod.string().nullish()
+})
+
+
+/**
+ * @summary تسجيل كحساب رئيسي
+ */
+export const RegisterMainAccountResponse = zod.object({
+  "role": zod.enum(['none', 'main', 'sub']),
+  "email": zod.string().nullish(),
+  "subStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "agentId": zod.number().nullish(),
+  "agentName": zod.string().nullish()
+})
+
+
+/**
+ * @summary تسجيل كحساب فرعي وربطه بحساب رئيسي
+ */
+
+
+
+export const RegisterSubAccountBody = zod.object({
+  "ownerEmail": zod.string().min(1)
+})
+
+export const RegisterSubAccountResponse = zod.object({
+  "role": zod.enum(['none', 'main', 'sub']),
+  "email": zod.string().nullish(),
+  "subStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "agentId": zod.number().nullish(),
+  "agentName": zod.string().nullish()
+})
+
+
+/**
+ * @summary قائمة طلبات الحسابات الفرعية (للحساب الرئيسي)
+ */
+export const ListSubRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "subEmail": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "agentId": zod.number().nullish(),
+  "agentName": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "decidedAt": zod.string().nullish()
+})
+export const ListSubRequestsResponse = zod.array(ListSubRequestsResponseItem)
+
+
+/**
+ * @summary الموافقة على حساب فرعي وربطه بمندوب
+ */
+export const ApproveSubRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ApproveSubRequestBody = zod.object({
+  "agentId": zod.number().optional(),
+  "newAgentName": zod.string().optional(),
+  "newAgentPhone": zod.string().optional()
+})
+
+export const ApproveSubRequestResponse = zod.object({
+  "id": zod.number(),
+  "subEmail": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "agentId": zod.number().nullish(),
+  "agentName": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "decidedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary رفض حساب فرعي
+ */
+export const RejectSubRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectSubRequestResponse = zod.object({
+  "id": zod.number(),
+  "subEmail": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "agentId": zod.number().nullish(),
+  "agentName": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "decidedAt": zod.string().nullish()
+})
+
+

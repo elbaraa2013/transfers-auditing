@@ -6,11 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './accountMe';
+export * from './accountMeRole';
+export * from './accountMeSubStatus';
 export * from './agent';
 export * from './agentInput';
 export * from './agentsSummary';
 export * from './agentStatement';
 export * from './agentSummaryRow';
+export * from './approveSubInput';
 export * from './cashPaymentInput';
 export * from './changeAgentInput';
 export * from './conversation';
@@ -22,10 +26,13 @@ export * from './listTransfersStatus';
 export * from './message';
 export * from './messageDirection';
 export * from './messageType';
+export * from './registerSubInput';
 export * from './rejectInput';
 export * from './scanInput';
 export * from './scanResult';
 export * from './statementSummary';
+export * from './subRequest';
+export * from './subRequestStatus';
 export * from './summaryTotals';
 export * from './transfer';
 export * from './transferInput';

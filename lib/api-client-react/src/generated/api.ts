@@ -20,10 +20,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AccountMe,
   Agent,
   AgentInput,
   AgentStatement,
   AgentsSummary,
+  ApproveSubInput,
   CashPaymentInput,
   ChangeAgentInput,
   Conversation,
@@ -32,9 +34,11 @@ import type {
   InactiveAgent,
   ListTransfersParams,
   Message,
+  RegisterSubInput,
   RejectInput,
   ScanInput,
   ScanResult,
+  SubRequest,
   Transfer,
   TransferInput,
   TransferStats
@@ -1629,4 +1633,441 @@ export function useGetConversation<TData = Awaited<ReturnType<typeof getConversa
 
 
 
+
+export const getGetAccountMeUrl = () => {
+
+
+
+
+  return `/api/account/me`
+}
+
+/**
+ * @summary الحصول على معلومات الحساب الحالي
+ */
+export const getAccountMe = async ( options?: RequestInit): Promise<AccountMe> => {
+
+  return customFetch<AccountMe>(getGetAccountMeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountMeQueryKey = () => {
+    return [
+    `/api/account/me`
+    ] as const;
+    }
+
+
+export const getGetAccountMeQueryOptions = <TData = Awaited<ReturnType<typeof getAccountMe>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountMe>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountMeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountMe>>> = ({ signal }) => getAccountMe({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountMe>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAccountMeQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountMe>>>
+export type GetAccountMeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary الحصول على معلومات الحساب الحالي
+ */
+
+export function useGetAccountMe<TData = Awaited<ReturnType<typeof getAccountMe>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountMe>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAccountMeQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRegisterMainAccountUrl = () => {
+
+
+
+
+  return `/api/account/register-main`
+}
+
+/**
+ * @summary تسجيل كحساب رئيسي
+ */
+export const registerMainAccount = async ( options?: RequestInit): Promise<AccountMe> => {
+
+  return customFetch<AccountMe>(getRegisterMainAccountUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRegisterMainAccountMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerMainAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerMainAccount>>, TError,void, TContext> => {
+
+const mutationKey = ['registerMainAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerMainAccount>>, void> = () => {
+
+
+          return  registerMainAccount(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterMainAccountMutationResult = NonNullable<Awaited<ReturnType<typeof registerMainAccount>>>
+
+    export type RegisterMainAccountMutationError = ErrorType<void>
+
+    /**
+ * @summary تسجيل كحساب رئيسي
+ */
+export const useRegisterMainAccount = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerMainAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerMainAccount>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRegisterMainAccountMutationOptions(options));
+    }
+
+export const getRegisterSubAccountUrl = () => {
+
+
+
+
+  return `/api/account/register-sub`
+}
+
+/**
+ * @summary تسجيل كحساب فرعي وربطه بحساب رئيسي
+ */
+export const registerSubAccount = async (registerSubInput: RegisterSubInput, options?: RequestInit): Promise<AccountMe> => {
+
+  return customFetch<AccountMe>(getRegisterSubAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      registerSubInput,)
+  }
+);}
+
+
+
+
+export const getRegisterSubAccountMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerSubAccount>>, TError,{data: BodyType<RegisterSubInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerSubAccount>>, TError,{data: BodyType<RegisterSubInput>}, TContext> => {
+
+const mutationKey = ['registerSubAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerSubAccount>>, {data: BodyType<RegisterSubInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerSubAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterSubAccountMutationResult = NonNullable<Awaited<ReturnType<typeof registerSubAccount>>>
+    export type RegisterSubAccountMutationBody = BodyType<RegisterSubInput>
+    export type RegisterSubAccountMutationError = ErrorType<void>
+
+    /**
+ * @summary تسجيل كحساب فرعي وربطه بحساب رئيسي
+ */
+export const useRegisterSubAccount = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerSubAccount>>, TError,{data: BodyType<RegisterSubInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerSubAccount>>,
+        TError,
+        {data: BodyType<RegisterSubInput>},
+        TContext
+      > => {
+      return useMutation(getRegisterSubAccountMutationOptions(options));
+    }
+
+export const getListSubRequestsUrl = () => {
+
+
+
+
+  return `/api/account/sub-requests`
+}
+
+/**
+ * @summary قائمة طلبات الحسابات الفرعية (للحساب الرئيسي)
+ */
+export const listSubRequests = async ( options?: RequestInit): Promise<SubRequest[]> => {
+
+  return customFetch<SubRequest[]>(getListSubRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSubRequestsQueryKey = () => {
+    return [
+    `/api/account/sub-requests`
+    ] as const;
+    }
+
+
+export const getListSubRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listSubRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSubRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSubRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSubRequests>>> = ({ signal }) => listSubRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSubRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSubRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listSubRequests>>>
+export type ListSubRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary قائمة طلبات الحسابات الفرعية (للحساب الرئيسي)
+ */
+
+export function useListSubRequests<TData = Awaited<ReturnType<typeof listSubRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSubRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSubRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getApproveSubRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/account/sub-requests/${id}/approve`
+}
+
+/**
+ * @summary الموافقة على حساب فرعي وربطه بمندوب
+ */
+export const approveSubRequest = async (id: number,
+    approveSubInput: ApproveSubInput, options?: RequestInit): Promise<SubRequest> => {
+
+  return customFetch<SubRequest>(getApproveSubRequestUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      approveSubInput,)
+  }
+);}
+
+
+
+
+export const getApproveSubRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveSubRequest>>, TError,{id: number;data: BodyType<ApproveSubInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveSubRequest>>, TError,{id: number;data: BodyType<ApproveSubInput>}, TContext> => {
+
+const mutationKey = ['approveSubRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveSubRequest>>, {id: number;data: BodyType<ApproveSubInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  approveSubRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveSubRequestMutationResult = NonNullable<Awaited<ReturnType<typeof approveSubRequest>>>
+    export type ApproveSubRequestMutationBody = BodyType<ApproveSubInput>
+    export type ApproveSubRequestMutationError = ErrorType<void>
+
+    /**
+ * @summary الموافقة على حساب فرعي وربطه بمندوب
+ */
+export const useApproveSubRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveSubRequest>>, TError,{id: number;data: BodyType<ApproveSubInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveSubRequest>>,
+        TError,
+        {id: number;data: BodyType<ApproveSubInput>},
+        TContext
+      > => {
+      return useMutation(getApproveSubRequestMutationOptions(options));
+    }
+
+export const getRejectSubRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/account/sub-requests/${id}/reject`
+}
+
+/**
+ * @summary رفض حساب فرعي
+ */
+export const rejectSubRequest = async (id: number, options?: RequestInit): Promise<SubRequest> => {
+
+  return customFetch<SubRequest>(getRejectSubRequestUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getRejectSubRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectSubRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectSubRequest>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['rejectSubRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectSubRequest>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  rejectSubRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectSubRequestMutationResult = NonNullable<Awaited<ReturnType<typeof rejectSubRequest>>>
+
+    export type RejectSubRequestMutationError = ErrorType<void>
+
+    /**
+ * @summary رفض حساب فرعي
+ */
+export const useRejectSubRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectSubRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectSubRequest>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRejectSubRequestMutationOptions(options));
+    }
 
