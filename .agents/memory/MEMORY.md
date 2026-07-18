@@ -4,4 +4,5 @@
 - [Orval codegen collision](orval-codegen-conflicts.md) — never add query params to a path-param endpoint; emits duplicate `<Op>Params` → TS2308 in api-zod barrel.
 - [Transfer response shape](transfer-response-shape.md) — Transfer object built in 2 places (transfers.ts buildTransferResponse + agents.ts statement map); new fields go in both.
 - [Orval hook query options](orval-hook-options.md) — generated hooks require explicit queryKey when passing query options (enabled etc.); use get*QueryKey helpers.
+- [GitHub push auth](github-push-auth.md) — askpass fails; fetch connector token via SDK header + /api/v2/connection?include_secrets=true (no connector_names filter), push with x-access-token URL.
 - [Transfer business-date key](business-date-key.md) — reporting date = transferDate else createdAt, as UTC YYYY-MM-DD; computed in client Statement + server /agents/summary, keep in sync.
