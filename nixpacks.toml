@@ -1,2 +1,8 @@
+[phases.setup]
+nixPkgs = ["...", "python311", "tesseract"]
+
 [phases.install]
-cmds = ["pnpm install --no-frozen-lockfile"]
+cmds = [
+  "pnpm install --no-frozen-lockfile",
+  "python3 -m venv /app/.pythonlibs && /app/.pythonlibs/bin/pip install numpy opencv-python-headless pillow pytesseract"
+]
