@@ -1,3 +1,4 @@
+cat > artifacts/hawala-audit/src/App.tsx <<'APP_EOF'
 import { useEffect, useRef } from "react";
 import {
   ClerkProvider,
@@ -20,7 +21,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider } from "@/contexts/AppContext";
 import NotFound from "@/pages/not-found";
-
 import Layout from "@/components/layout/Layout";
 import Landing from "@/pages/Landing";
 import Overview from "@/pages/Overview";
@@ -31,26 +31,21 @@ import Matching from "@/pages/Matching";
 import Inactive from "@/pages/Inactive";
 import Statement from "@/pages/Statement";
 import Whatsapp from "@/pages/Whatsapp";
-
+import AdminSubscriptions from "@/pages/AdminSubscriptions";
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
-
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
-
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
     ? path.slice(basePath.length) || "/"
     : path;
 }
-
 if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
 }
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -59,7 +54,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
 const clerkAppearance = {
   theme: shadcn,
   cssLayerName: "clerk",
@@ -109,7 +103,6 @@ const clerkAppearance = {
     main: "",
   },
 };
-
 function SignInPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4" dir="rtl">
@@ -117,7 +110,6 @@ function SignInPage() {
     </div>
   );
 }
-
 function SignUpPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4" dir="rtl">
@@ -125,12 +117,10 @@ function SignUpPage() {
     </div>
   );
 }
-
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const qc = useQueryClient();
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
-
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
@@ -144,10 +134,8 @@ function ClerkQueryClientCacheInvalidator() {
     });
     return unsubscribe;
   }, [addListener, qc]);
-
   return null;
 }
-
 function Dashboard() {
   return (
     <Layout>
@@ -160,12 +148,12 @@ function Dashboard() {
         <Route path="/inactive" component={Inactive} />
         <Route path="/statement" component={Statement} />
         <Route path="/whatsapp" component={Whatsapp} />
+        <Route path="/admin" component={AdminSubscriptions} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
   );
 }
-
 function HomeRedirect() {
   return (
     <>
@@ -178,7 +166,6 @@ function HomeRedirect() {
     </>
   );
 }
-
 function ProtectedApp() {
   return (
     <>
@@ -191,10 +178,8 @@ function ProtectedApp() {
     </>
   );
 }
-
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
-
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -236,7 +221,6 @@ function ClerkProviderWithRoutes() {
     </ClerkProvider>
   );
 }
-
 function App() {
   return (
     <WouterRouter base={basePath}>
@@ -244,5 +228,4 @@ function App() {
     </WouterRouter>
   );
 }
-
 export default App;

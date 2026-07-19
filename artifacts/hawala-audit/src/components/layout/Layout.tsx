@@ -5,6 +5,7 @@ import { useClerk, useUser } from "@clerk/react";
 import { useHealthCheck } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import SubscriptionBadge from "@/components/SubscriptionBadge";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -57,6 +58,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-[#F4EEE1] text-gray-900 overflow-hidden font-sans" dir="rtl">
+      <SubscriptionBadge />
       {/* Sidebar */}
       <aside className="w-64 bg-[#1C1A17] text-white flex flex-col flex-shrink-0 no-print">
         <div className="p-4 flex items-center gap-3 border-b border-[#33302A]">
