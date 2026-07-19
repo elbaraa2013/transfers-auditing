@@ -450,13 +450,13 @@ def extract(image_path):
 
     risk = 0.1
     if amount:
-        if amount >= 1000000:
+        if amount >= 3000000:
             risk = 0.9
-        elif amount >= 100000:
+        elif amount >= 1000000:
             risk = 0.7
-        elif amount >= 50000:
+        elif amount >= 500000:
             risk = 0.5
-        elif amount >= 10000:
+        elif amount >= 100000:
             risk = 0.35
         else:
             risk = 0.2
