@@ -1,4 +1,3 @@
-cat > artifacts/hawala-audit/src/App.tsx <<'APP_EOF'
 import { useEffect, useRef } from "react";
 import {
   ClerkProvider,
