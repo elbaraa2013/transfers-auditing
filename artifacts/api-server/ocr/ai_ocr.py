@@ -1,9 +1,8 @@
-"""AI-first Bankak receipt extractor.
+"""AI-first Bankak receipt extractor with a dedicated recipient-name pass.
 
-Tries Claude vision API (accurate Arabic OCR), validates the result,
-retries once with a stronger model when weak, and falls back to the
-legacy tesseract pipeline (bankak_ocr.py) if the API is unavailable.
-Prints the same JSON schema the Node server expects.
+Full-page extraction via Claude vision, then the recipient row is located
+(tesseract layout pass), cropped, enlarged and re-read letter-by-letter.
+Falls back to the legacy tesseract pipeline if the API is unavailable.
 """
 import base64
 import json
@@ -13,7 +12,9 @@ import sys
 import urllib.request
 import urllib.error
 
-import bankak_ocr  # legacy tesseract fallback (same directory)
+import cv2
+
+import bankak_ocr  # legacy pipeline + layout helpers (same directory)
 
 API_URL = "https://api.anthropic.com/v1/messages"
 MODEL_PRIMARY = os.environ.get("OCR_MODEL", "claude-haiku-4-5")
@@ -33,8 +34,23 @@ PROMPT = (
     '  "comment": string|null,           // التعليق - copy exactly\n'
     '  "transferDate": string|null       // التاريخ والوقت - exactly as shown, e.g. "09-Jul-2026 18:28:00"\n'
     "}\n"
-    "Rules: use null for any field not present; keep Arabic text exactly as written;\n"
-    "account numbers are usually 16 digits shown in groups of 4 - join them without spaces."
+    "Rules: use null for any field not present; account numbers are usually 16 digits\n"
+    "shown in groups of 4 - join them without spaces.\n"
+    "CRITICAL rule for recipientName and comment: Sudanese personal names are often\n"
+    "UNCOMMON words. Transcribe letter-by-letter EXACTLY as printed. NEVER substitute\n"
+    "a similar common name. Examples of forbidden corrections:\n"
+    "- printed حانز -> do NOT write حائز or حازم, keep حانز\n"
+    "- printed البلوله -> do NOT write البالولة, keep البلوله\n"
+    "Preserve ة vs ه and ى vs ي exactly as printed. Do not add or remove ال."
+)
+
+NAME_PROMPT = (
+    "This is an enlarged crop of the recipient-name row (إسم المرسل اليه) from a bank receipt.\n"
+    "Transcribe ONLY the person's name, letter-by-letter, EXACTLY as printed.\n"
+    "The name may be an uncommon Sudanese name - do NOT autocorrect it to a similar\n"
+    "common name (e.g. printed حانز stays حانز, never حائز/حازم; printed البلوله stays\n"
+    "البلوله, never البالولة). Preserve ة vs ه and ى vs ي exactly. Ignore the field label.\n"
+    'Answer with ONLY raw JSON: {"recipientName": "..."} - null if unreadable.'
 )
 
 
@@ -60,7 +76,7 @@ def parse_json_block(text: str):
     return json.loads(text[start : end + 1])
 
 
-def call_claude(image_b64: str, media_type: str, model: str, api_key: str):
+def call_claude(image_b64: str, media_type: str, model: str, api_key: str, prompt: str):
     body = {
         "model": model,
         "max_tokens": 1024,
@@ -77,7 +93,7 @@ def call_claude(image_b64: str, media_type: str, model: str, api_key: str):
                             "data": image_b64,
                         },
                     },
-                    {"type": "text", "text": PROMPT},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ],
@@ -100,6 +116,50 @@ def call_claude(image_b64: str, media_type: str, model: str, api_key: str):
         if block.get("type") == "text"
     )
     return parse_json_block(text)
+
+
+def name_crop_b64(image_path: str):
+    """Locate the recipient row with the legacy layout pass, crop it from the
+    original color image, enlarge x2 and return it as base64 PNG."""
+    try:
+        gray = bankak_ocr.load_gray(image_path)
+        orig = cv2.imread(image_path)
+        if orig is None:
+            return None
+        scale = max(gray.shape[:2]) / max(orig.shape[:2])
+        ar_lines = bankak_ocr.ocr_lines(gray, "ara+eng")
+        label = bankak_ocr.find_recipient_band(ar_lines)
+        if not label:
+            return None
+        h_line = label["bottom"] - label["top"]
+        top = int(max(0, (label["top"] - h_line * 1.0) / scale))
+        bottom = int(min(orig.shape[0], (label["bottom"] + h_line * 2.2) / scale))
+        if bottom - top < 10:
+            return None
+        crop = orig[top:bottom, :]
+        crop = cv2.resize(crop, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+        ok, buf = cv2.imencode(".png", crop)
+        if not ok:
+            return None
+        return base64.standard_b64encode(buf.tobytes()).decode("ascii")
+    except Exception:  # noqa: BLE001 — refinement is best-effort
+        return None
+
+
+def refine_recipient(image_path: str, api_key: str):
+    crop_b64 = name_crop_b64(image_path)
+    if not crop_b64:
+        return None
+    try:
+        raw = call_claude(crop_b64, "image/png", MODEL_FALLBACK, api_key, NAME_PROMPT)
+    except Exception:  # noqa: BLE001
+        return None
+    name = raw.get("recipientName")
+    if isinstance(name, str):
+        name = name.strip()
+        if len(re.findall(r"[\u0600-\u06FF]", name)) >= 4:
+            return name
+    return None
 
 
 def _digits(value):
@@ -150,13 +210,13 @@ def normalize(raw: dict) -> dict:
 def risk_score(amount, completeness):
     risk = 0.1
     if amount:
-        if amount >= 1000000:
+        if amount > 3000000:
             risk = 0.9
         elif amount >= 100000:
             risk = 0.7
-        elif amount >= 50000:
+        elif amount >= 500000:
             risk = 0.5
-        elif amount >= 10000:
+        elif amount >= 100000:
             risk = 0.35
         else:
             risk = 0.2
@@ -185,41 +245,14 @@ def ai_extract(image_path: str, api_key: str) -> dict:
     image_b64 = base64.standard_b64encode(data).decode("ascii")
     media_type = sniff_media_type(data)
 
-    fields = normalize(call_claude(image_b64, media_type, MODEL_PRIMARY, api_key))
+    fields = normalize(call_claude(image_b64, media_type, MODEL_PRIMARY, api_key, PROMPT))
     if is_weak(fields):
         try:
-            better = normalize(call_claude(image_b64, media_type, MODEL_FALLBACK, api_key))
+            better = normalize(call_claude(image_b64, media_type, MODEL_FALLBACK, api_key, PROMPT))
             keys = ["operationNumber", "amount", "fromAccount", "toAccount", "recipientName", "transferDate"]
             if sum(1 for k in keys if better.get(k)) > sum(1 for k in keys if fields.get(k)):
                 fields = better
-        except Exception:
-            pass  # keep primary result
-    return finalize(fields)
+        except Exception:  # noqa: BLE001
+            pass
 
-
-def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"error": "image path argument required"}))
-        sys.exit(1)
-    image_path = sys.argv[1]
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-
-    if api_key:
-        try:
-            result = ai_extract(image_path, api_key)
-            print(json.dumps(result, ensure_ascii=False))
-            return
-        except Exception as exc:  # noqa: BLE001 — fall back to tesseract
-            print("AI extraction failed, falling back: %s" % exc, file=sys.stderr)
-
-    try:
-        result = bankak_ocr.extract(image_path)
-        print(json.dumps(result, ensure_ascii=False))
-    except Exception as exc:  # noqa: BLE001
-        print(json.dumps({"error": str(exc)}, ensure_ascii=False))
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
-    
+    #
