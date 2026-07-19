@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import path from "node:path";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
@@ -50,5 +51,17 @@ app.use(
 );
 
 app.use("/api", router);
-
+// Serve the hawala-audit frontend build (production)
+const publicDir = path.resolve(__dirname, "../../hawala-audit/dist/public");
+app.use(express.static(publicDir));
+app.use((req, res, next) => {
+  if (
+    req.method !== "GET" ||
+    req.path.startsWith("/api") ||
+    req.path.startsWith(CLERK_PROXY_PATH)
+  ) {
+    return next();
+  }
+  res.sendFile(path.join(publicDir, "index.html"));
+});
 export default app;
