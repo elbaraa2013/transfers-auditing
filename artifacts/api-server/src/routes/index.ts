@@ -6,11 +6,11 @@ import messagesRouter from "./messages";
 import scanRouter from "./scan";
 import backupRouter from "./backup";
 import accountsRouter from "./accounts";
+// === اشتراك ===
+import subscriptionsRouter from "./subscriptions";
 import { requireAuth } from "../middlewares/requireAuth";
 import { resolveTenant } from "../middlewares/resolveTenant";
-
 const router: IRouter = Router();
-
 router.use(healthRouter);
 // Account routes act on the caller's real identity — mounted before resolveTenant.
 router.use(requireAuth, accountsRouter);
@@ -19,5 +19,6 @@ router.use(requireAuth, resolveTenant, agentsRouter);
 router.use(requireAuth, resolveTenant, messagesRouter);
 router.use(requireAuth, resolveTenant, scanRouter);
 router.use(requireAuth, resolveTenant, backupRouter);
-
+// === اشتراك ===
+router.use(requireAuth, resolveTenant, subscriptionsRouter);
 export default router;

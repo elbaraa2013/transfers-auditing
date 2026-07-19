@@ -1,34 +1,29 @@
 import { Router } from "express";
 import { spawn } from "node:child_process";
+import { getOrCreateSubscription, recordScanUsage } from "../lib/subscriptions";
 import { writeFile, rm, mkdtemp } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
 const router = Router();
-
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 // dist/index.mjs -> package root is one level up; ocr/ lives in the package root.
 const packageRoot = path.resolve(moduleDir, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
-
 function resolvePythonBin(): string {
   if (process.env.OCR_PYTHON_BIN) return process.env.OCR_PYTHON_BIN;
   const venvPython = path.join(repoRoot, ".pythonlibs", "bin", "python");
   if (existsSync(venvPython)) return venvPython;
   return "python3";
 }
-
 function resolveOcrScript(): string {
   if (process.env.OCR_SCRIPT_PATH) return process.env.OCR_SCRIPT_PATH;
   return path.join(packageRoot, "ocr", "bankak_ocr.py");
 }
-
 const PYTHON_BIN = resolvePythonBin();
 const OCR_SCRIPT = resolveOcrScript();
 const OCR_TIMEOUT_MS = 60_000;
-
 interface OcrResult {
   operationNumber: string | null;
   amount: number | null;
@@ -42,21 +37,18 @@ interface OcrResult {
   rawLines?: string[];
   error?: string;
 }
-
 function runOcr(imagePath: string): Promise<OcrResult> {
   return new Promise((resolve, reject) => {
     const proc = spawn(PYTHON_BIN, [OCR_SCRIPT, imagePath]);
     let stdout = "";
     let stderr = "";
     let settled = false;
-
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
       proc.kill("SIGKILL");
       reject(new Error("انتهت مهلة معالجة الصورة"));
     }, OCR_TIMEOUT_MS);
-
     proc.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
     });
@@ -85,31 +77,34 @@ function runOcr(imagePath: string): Promise<OcrResult> {
     });
   });
 }
-
 // POST /api/scan
 router.post("/scan", async (req, res) => {
   const { imageBase64 } = req.body;
-
   if (!imageBase64 || typeof imageBase64 !== "string") {
     res.status(400).json({ error: "imageBase64 مطلوب" });
     return;
   }
-
+  // === اشتراك: التحقق قبل المسح ===
+  const subscription = await getOrCreateSubscription(req.userId!);
+  if (!subscription.active) {
+    res.status(402).json({
+      error:
+        " +971501009533 انتهى اشتراكك أو نفدت مسحاتك. للتجديد (150 درهم لكل 2,000 مسحة أو شهر) يرجى التواصل بالواتس اب مع الإدارة.",
+      subscription,
+    });
+    return;
+  }
   const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-
   let dir: string | undefined;
   try {
     dir = await mkdtemp(path.join(tmpdir(), "scan-"));
     const imagePath = path.join(dir, "receipt.png");
     await writeFile(imagePath, Buffer.from(base64Data, "base64"));
-
     const result = await runOcr(imagePath);
-
     if (result.error) {
       res.status(400).json({ error: `تعذّر مسح الصورة: ${result.error}` });
       return;
     }
-
     const hasData =
       result.operationNumber || result.amount || result.recipientName || result.fromAccount;
     if (!hasData) {
@@ -118,7 +113,8 @@ router.post("/scan", async (req, res) => {
       });
       return;
     }
-
+    // === اشتراك: احتساب المسحة الناجحة ===
+    await recordScanUsage(subscription.id);
     res.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -130,5 +126,4 @@ router.post("/scan", async (req, res) => {
     }
   }
 });
-
 export default router;
