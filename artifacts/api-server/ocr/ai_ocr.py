@@ -255,4 +255,37 @@ def ai_extract(image_path: str, api_key: str) -> dict:
         except Exception:  # noqa: BLE001
             pass
 
-    #
+
+    # Dedicated zoomed pass for the recipient name - the hardest field.
+    refined = refine_recipient(image_path, api_key)
+    if refined:
+        fields["recipientName"] = refined
+
+    return finalize(fields)
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(json.dumps({"error": "image path argument required"}))
+        sys.exit(1)
+    image_path = sys.argv[1]
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
+    if api_key:
+        try:
+            result = ai_extract(image_path, api_key)
+            print(json.dumps(result, ensure_ascii=False))
+            return
+        except Exception as exc:  # noqa: BLE001 - fall back to tesseract
+            print("AI extraction failed, falling back: %s" % exc, file=sys.stderr)
+
+    try:
+        result = bankak_ocr.extract(image_path)
+        print(json.dumps(result, ensure_ascii=False))
+    except Exception as exc:  # noqa: BLE001
+        print(json.dumps({"error": str(exc)}, ensure_ascii=False))
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
